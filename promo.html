@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  body {
+    background: linear-gradient(135deg, #0f172a 0%, #171717 100%);
+    color: white;
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+  .card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 50px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    width: 100%;
+    max-width: 1400px;
+  }
+  .terminal {
+    background: #09090b;
+    border-radius: 12px;
+    padding: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #a8b2d1;
+    margin-bottom: 50px;
+    border: 1px solid #27272a;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+  }
+  .terminal-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .dot { width: 14px; height: 14px; border-radius: 50%; }
+  .dot.red { background: #ff5f56; }
+  .dot.yellow { background: #ffbd2e; }
+  .dot.green { background: #27c93f; }
+  
+  .cmd { color: #f8fafc; font-weight: 500; }
+  .success { color: #34d399; font-weight: 600; }
+  .label { color: #38bdf8; }
+  
+  .images-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 50px;
+  }
+  .img-container {
+    display: flex;
+    flex-direction: column;
+    align-items: none;
+    gap: 16px;
+  }
+  .img-wrapper {
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+    background: #fff;
+  }
+  .img-wrapper img {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-position: top center;
+    max-height: 480px;
+    object-fit: cover;
+  }
+  .header-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .img-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: 0.5px;
+  }
+  .tag {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    color: #38bdf8;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .tag.green {
+    background: rgba(52, 211, 153, 0.1);
+    border: 1px solid rgba(52, 211, 153, 0.2);
+    color: #34d399;
+  }
+  
+  .caption {
+    text-align: center;
+    font-size: 48px;
+    font-weight: 800;
+    background: linear-gradient(to right, #60a5fa, #c084fc, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+    letter-spacing: -1px;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="terminal">
+    <div class="terminal-header">
+      <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
+    </div>
+    <div style="margin-bottom: 24px">
+      <span class="cmd">~ npx tsx src/cli.ts https://news.ycombinator.com --no-clean</span><br>
+      <span style="color: #94a3b8">🔍  Capturing: https://news.ycombinator.com</span><br>
+      <span style="color: #64748b">    fullPage=false | skipClean=true | waitFor=none</span><br><br>
+      <span class="success">✅  Capture complete</span><br>
+      <span class="label">    Title:</span>       Hacker News<br>
+      <span class="label">    Time:</span>        2752ms<br>
+      <span class="label">    Saved to:</span>    hn-raw.jpeg
+    </div>
+    <div>
+      <span class="cmd">~ npx tsx src/cli.ts https://news.ycombinator.com</span><br>
+      <span style="color: #94a3b8">🔍  Capturing: https://news.ycombinator.com</span><br>
+      <span style="color: #64748b">    fullPage=false | skipClean=false | waitFor=none</span><br><br>
+      <span class="success">✅  Capture complete</span><br>
+      <span class="label">    Title:</span>       Hacker News<br>
+      <span class="label">    Time:</span>        2756ms<br>
+      <span class="label">    Saved to:</span>    hn-clean.jpeg
+    </div>
+  </div>
+  
+  <div class="images-grid">
+    <div class="img-container">
+      <div class="header-group">
+        <div class="img-title">Before</div>
+        <div class="tag">Raw HTML</div>
+      </div>
+      <div class="img-wrapper">
+        <img src="hn-raw.jpeg" />
+      </div>
+    </div>
+    <div class="img-container">
+      <div class="header-group">
+        <div class="img-title">After</div>
+        <div class="tag green">VisionAPI Readability</div>
+      </div>
+      <div class="img-wrapper">
+        <img src="hn-clean.jpeg" />
+      </div>
+    </div>
+  </div>
+  
+  <h1 class="caption">One command. No more UI noise. 🚀</h1>
+</div>
+</body>
+</html>

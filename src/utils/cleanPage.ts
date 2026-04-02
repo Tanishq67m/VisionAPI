@@ -6,7 +6,7 @@ import type { CleanPageOptions } from '../types/capture.js';
 // Strategy: broad attribute-based selectors catch most dynamic class names.
 // Order matters — more specific selectors first.
 
-const OVERLAY_SELECTORS: string[] = [
+export const OVERLAY_SELECTORS: string[] = [
   // Cookie / GDPR banners
   '[class*="cookie"]',
   '[id*="cookie"]',
