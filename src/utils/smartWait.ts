@@ -50,7 +50,7 @@ export async function smartWait(
   }
 
   // Small fixed settle delay — lets React/Vue/Svelte finish any
-  // final paint after data loads. 300ms is a good balance between
-  // speed and catching late-rendering frameworks.
-  await page.waitForTimeout(300);
+  // final paint after data loads.
+  // We use 800ms to let CSS reflow after heavy DOM mutations.
+  await page.waitForTimeout(800); // let CSS reflow after DOM mutations
 }

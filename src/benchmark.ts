@@ -1,155 +1,144 @@
+import { chromium } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
-import { captureForAI, closeBrowser } from './captureForAI.js';
+import { cleanPage } from './utils/cleanPage.js';
+import { smartWait } from './utils/smartWait.js';
+
+// ── Pricing (May 2026) ────────────────────────────────────────────────────────
+const CLAUDE_SONNET_46_INPUT_PER_M = 3.00;  // claude-sonnet-4-6 input tokens
+const GPT4O_INPUT_PER_M = 2.50;             // gpt-4o input tokens
+
+// ── Token math ────────────────────────────────────────────────────────────────
 
 /**
- * Calculates Claude 3.5/4.6 Sonnet token count for an image.
- * Formula: Tokens = (Width * Height) / 750
+ * Anthropic Claude: ~(width * height) / 750
+ * Based on published model card for Claude 3.5/4.x vision
  */
-function calculateClaudeTokens(width: number, height: number): number {
-    return Math.ceil((width * height) / 750);
+function claudeTokens(width: number, height: number): number {
+  return Math.ceil((width * height) / 750);
 }
 
 /**
- * Calculates GPT-4o high-res vision token count for an image.
- * Formula: Shortest side scaled to 768px, broken into 512x512 tiles 
- * (170 tokens per tile) + 85 tokens base penalty.
+ * OpenAI GPT-4o High Detail:
+ * 1. Resize so shortest side = 768px (maintaining aspect ratio)
+ * 2. If longest side > 2048px, scale down so longest side = 2048px
+ * 3. Count 512x512 tiles; each tile = 170 tokens + 85 base
  */
-function calculateGpt4oTokens(width: number, height: number): number {
-    const shortSide = Math.min(width, height);
-    const scale = 768 / shortSide;
-    const scaledWidth = width * scale;
-    const scaledHeight = height * scale;
-    
-    const tilesWidth = Math.ceil(scaledWidth / 512);
-    const tilesHeight = Math.ceil(scaledHeight / 512);
-    
-    return (tilesWidth * tilesHeight * 170) + 85;
+function gpt4oTokens(width: number, height: number): number {
+  let w = width, h = height;
+
+  // Step 1: scale shortest side to 768
+  if (Math.min(w, h) > 768) {
+    const scale = 768 / Math.min(w, h);
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+  }
+
+  // Step 2: scale longest side to max 2048
+  if (Math.max(w, h) > 2048) {
+    const scale = 2048 / Math.max(w, h);
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+  }
+
+  const tilesX = Math.ceil(w / 512);
+  const tilesY = Math.ceil(h / 512);
+  return tilesX * tilesY * 170 + 85;
 }
 
-/**
- * Main Benchmark Execution
- */
-async function runBenchmark() {
-    const targetUrl = process.argv[2];
+async function runBenchmark(url: string) {
+  console.log(`\n🚀 Starting VisionAPI Benchmark for: ${url}\n`);
 
-    if (!targetUrl) {
-        console.error("❌ Error: Please provide a target URL.");
-        console.error("💡 Usage: npx tsx src/benchmark.ts <URL>");
-        process.exit(1);
-    }
+  const outputDir = path.join('dist', 'benchmark');
+  fs.mkdirSync(outputDir, { recursive: true });
 
-    try {
-        new URL(targetUrl);
-    } catch {
-        console.error(`❌ Error: Invalid URL provided: "${targetUrl}"`);
-        process.exit(1);
-    }
+  const browser = await chromium.launch({ headless: true });
 
-    const outDir = path.resolve('dist/benchmark');
-    if (!fs.existsSync(outDir)) {
-        fs.mkdirSync(outDir, { recursive: true });
-    }
+  let rawBuffer: Buffer, cleanBuffer: Buffer;
 
-    console.log(`\n🚀 Starting VisionAPI Benchmark for: ${targetUrl}\n`);
+  // ── Capture A: Raw ────────────────────────────────────────────────────────
+  console.log('📸 Executing Capture A (Raw)...');
+  {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 2,
+    });
+    const page = await context.newPage();
+    console.log('   Navigating to URL, waiting for networkidle...');
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    rawBuffer = await page.screenshot({ type: 'jpeg', quality: 80, fullPage: true });
+    fs.writeFileSync(path.join(outputDir, 'raw.jpeg'), rawBuffer);
+    console.log('   ✅ Saved to dist/benchmark/raw.jpeg');
+    await context.close();
+  }
 
-    try {
-        // ─── Capture A: Raw ────────────────────────────────────────────────────────
-        console.log(`📸 Executing Capture A (Raw)...`);
-        console.log(`   Navigating to URL, waiting for networkidle...`);
-        const rawResult = await captureForAI({
-            url: targetUrl,
-            skipClean: true, // No janitor logic
-            fullPage: true,
-        });
-        
-        const rawPath = path.join(outDir, 'raw.jpeg');
-        fs.writeFileSync(rawPath, rawResult.buffer);
-        console.log(`   ✅ Saved to dist/benchmark/raw.jpeg`);
+  // ── Capture B: Cleaned ───────────────────────────────────────────────────
+  console.log('🧹 Executing Capture B (Cleaned)...');
+  {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 2,
+    });
+    const page = await context.newPage();
+    console.log('   Running smartWait and cleanPage overlay removal logic...');
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    await smartWait(page, {});
+    await cleanPage(page, { readerMode: true });
+    cleanBuffer = await page.screenshot({ type: 'jpeg', quality: 80, fullPage: true });
+    fs.writeFileSync(path.join(outputDir, 'clean.jpeg'), cleanBuffer);
+    console.log('   ✅ Saved to dist/benchmark/clean.jpeg');
+    await context.close();
+  }
 
-        // ─── Capture B: Cleaned ────────────────────────────────────────────────────
-        console.log(`\n🧹 Executing Capture B (Cleaned)...`);
-        console.log(`   Running smartWait and cleanPage overlay removal logic...`);
-        const cleanResult = await captureForAI({
-            url: targetUrl,
-            skipClean: false, // Apply aggressive janitor logic
-            fullPage: true,
-        });
+  await browser.close();
 
-        const cleanPath = path.join(outDir, 'clean.jpeg');
-        fs.writeFileSync(cleanPath, cleanResult.buffer);
-        console.log(`   ✅ Saved to dist/benchmark/clean.jpeg\n`);
+  // ── Analysis ──────────────────────────────────────────────────────────────
+  console.log('\n📏 Analyzing image buffers with sharp...');
+  const rawMeta = await sharp(rawBuffer).metadata();
+  const cleanMeta = await sharp(cleanBuffer).metadata();
 
-        // ─── Measure dimensions using sharp ────────────────────────────────────────
-        console.log(`📏 Analyzing image buffers with sharp...`);
-        const rawMetadata = await sharp(rawResult.buffer).metadata();
-        const cleanMetadata = await sharp(cleanResult.buffer).metadata();
+  const rW = rawMeta.width!, rH = rawMeta.height!;
+  const cW = cleanMeta.width!, cH = cleanMeta.height!;
 
-        if (!rawMetadata.width || !rawMetadata.height || !cleanMetadata.width || !cleanMetadata.height) {
-            throw new Error("Failed to read image dimensions with sharp from the generated buffer.");
-        }
+  const rawClaude = claudeTokens(rW, rH);
+  const cleanClaude = claudeTokens(cW, cH);
+  const rawGPT = gpt4oTokens(rW, rH);
+  const cleanGPT = gpt4oTokens(cW, cH);
 
-        const rawWidth = rawMetadata.width;
-        const rawHeight = rawMetadata.height;
-        const cleanWidth = cleanMetadata.width;
-        const cleanHeight = cleanMetadata.height;
+  const claudeReduction = (((rawClaude - cleanClaude) / rawClaude) * 100).toFixed(1);
+  const gptReduction = rawGPT === cleanGPT ? '0' : (((rawGPT - cleanGPT) / rawGPT) * 100).toFixed(1);
 
-        // ─── Token calculations ────────────────────────────────────────────────────
-        const rawClaudeTokens = calculateClaudeTokens(rawWidth, rawHeight);
-        const cleanClaudeTokens = calculateClaudeTokens(cleanWidth, cleanHeight);
-        
-        const rawGpt4oTokens = calculateGpt4oTokens(rawWidth, rawHeight);
-        const cleanGpt4oTokens = calculateGpt4oTokens(cleanWidth, cleanHeight);
+  const rawClaudeCost = (rawClaude / 1_000_000) * CLAUDE_SONNET_46_INPUT_PER_M * 1000;
+  const cleanClaudeCost = (cleanClaude / 1_000_000) * CLAUDE_SONNET_46_INPUT_PER_M * 1000;
+  const savings = rawClaudeCost - cleanClaudeCost;
 
-        // ─── Percentages ───────────────────────────────────────────────────────────
-        const claudReduction = ((rawClaudeTokens - cleanClaudeTokens) / rawClaudeTokens) * 100;
-        const gpt4oReduction = ((rawGpt4oTokens - cleanGpt4oTokens) / rawGpt4oTokens) * 100;
+  const rawGPTCost = (rawGPT / 1_000_000) * GPT4O_INPUT_PER_M * 1000;
+  const cleanGPTCost = (cleanGPT / 1_000_000) * GPT4O_INPUT_PER_M * 1000;
+  const gptSavings = rawGPTCost - cleanGPTCost;
 
-        const formatReduction = (pct: number) => {
-            if (pct > 0) return `**⬇️ ${pct.toFixed(1)}%**`;
-            if (pct < 0) return `**⬆️ ${Math.abs(pct).toFixed(1)}%**`;
-            return `**0%**`;
-        };
+  console.log('\n📊 **Benchmark Results**');
+  console.log('| Metric | Raw (Original) | Cleaned (VisionAPI) | Payload Reduction |');
+  console.log('|--------|----------------|---------------------|-------------------|');
+  console.log(`| **Dimensions** | ${rW}x${rH}px | ${cW}x${cH}px | - |`);
+  console.log(`| **File Size** | ${(rawBuffer.length / 1024).toFixed(0)} KB | ${(cleanBuffer.length / 1024).toFixed(0)} KB | ⬇️ ${(((rawBuffer.length - cleanBuffer.length) / rawBuffer.length) * 100).toFixed(1)}% |`);
+  console.log(`| **Claude Sonnet 4.6 Tokens** | ${rawClaude.toLocaleString()} | ${cleanClaude.toLocaleString()} | **⬇️ ${claudeReduction}%** |`);
+  console.log(`| **GPT-4o Tokens** | ${rawGPT.toLocaleString()} | ${cleanGPT.toLocaleString()} | **⬇️ ${gptReduction}%** |`);
 
-        // ─── Financial calculations ────────────────────────────────────────────────
-        // Claude Sonnet input cost: $3.00 per Million tokens.
-        const COST_PER_MILLION = 3.00;
-        const rawCostPerRun = (rawClaudeTokens / 1_000_000) * COST_PER_MILLION;
-        const cleanCostPerRun = (cleanClaudeTokens / 1_000_000) * COST_PER_MILLION;
-        const savingsPerRun = rawCostPerRun - cleanCostPerRun;
-        const savings1kRuns = savingsPerRun * 1000;
-
-        // ─── Output Markdown Table ─────────────────────────────────────────────────
-        console.log(`\n📊 **Benchmark Results**\n`);
-        console.log(`| Metric | Raw (Original) | Cleaned (VisionAPI) | Payload Reduction |`);
-        console.log(`|--------|----------------|---------------------|-------------------|`);
-        console.log(`| **Dimensions** | ${rawWidth}x${rawHeight}px | ${cleanWidth}x${cleanHeight}px | - |`);
-        console.log(`| **Claude 3.5 Sonnet Tokens** | ${rawClaudeTokens.toLocaleString()} | ${cleanClaudeTokens.toLocaleString()} | ${formatReduction(claudReduction)} |`);
-        console.log(`| **GPT-4o Tokens** | ${rawGpt4oTokens.toLocaleString()} | ${cleanGpt4oTokens.toLocaleString()} | ${formatReduction(gpt4oReduction)} |`);
-        
-        console.log(`\n💰 **Financial Impact (Claude 3.5 Sonnet @ $3.00/1M Tokens):**`);
-        console.log(`   - Raw Cost per 1,000 runs:      $${(rawCostPerRun * 1000).toFixed(4)}`);
-        console.log(`   - Cleaned Cost per 1,000 runs:  $${(cleanCostPerRun * 1000).toFixed(4)}`);
-        
-        if (savings1kRuns > 0) {
-            console.log(`   - **Total Savings (per 1,000 runs)**: 💵 **$${savings1kRuns.toFixed(4)}**\n`);
-        } else {
-            console.log(`   - **Total Cost Difference (per 1,000 runs)**: $${savings1kRuns.toFixed(4)}\n`);
-        }
-
-    } catch (err) {
-        console.error("\n❌ Error during benchmark execution:");
-        console.error(err instanceof Error ? err.message : String(err));
-        process.exit(1);
-    } finally {
-        // Ensure Playwright browser is closed gracefully
-        await closeBrowser();
-    }
+  console.log(`\n💰 **Financial Impact @ 1,000 runs:**`);
+  console.log(`   Claude Sonnet 4.6 ($${CLAUDE_SONNET_46_INPUT_PER_M}/1M tokens):`);
+  console.log(`   - Raw:     $${rawClaudeCost.toFixed(4)}`);
+  console.log(`   - Cleaned: $${cleanClaudeCost.toFixed(4)}`);
+  console.log(`   - 💵 Saved: $${savings.toFixed(4)}`);
+  console.log(`\n   GPT-4o ($${GPT4O_INPUT_PER_M}/1M tokens):`);
+  console.log(`   - Raw:     $${rawGPTCost.toFixed(4)}`);
+  console.log(`   - Cleaned: $${cleanGPTCost.toFixed(4)}`);
+  console.log(`   - 💵 Saved: $${gptSavings.toFixed(4)}\n`);
 }
 
-// Execute the benchmark
-runBenchmark().catch(err => {
-    console.error("Unhandled top-level error:", err);
-    process.exit(1);
-});
+const url = process.argv[2];
+if (!url) {
+  console.error('Usage: npx tsx src/benchmark.ts <url>');
+  process.exit(1);
+}
+runBenchmark(url).catch(console.error);

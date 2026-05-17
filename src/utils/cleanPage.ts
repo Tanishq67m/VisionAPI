@@ -1,16 +1,7 @@
 import type { Page } from 'playwright';
 import type { CleanPageOptions } from '../types/capture.js';
 
-// ─── Reader Mode styles ───────────────────────────────────────────────────────
-//
-// Stripped-down typography that helps vision models focus on content,
-// not design chrome. Intentionally opinionated.
-
 const READER_MODE_CSS = `
-  /* 
-    Aggressively force all elements to drop fixed positioning to flow naturally, 
-    but without corrupting flex/grid max-widths that cause vertical inflation.
-  */
   [style*="position: fixed"],
   [style*="position:fixed"],
   [style*="position: sticky"],
@@ -19,201 +10,193 @@ const READER_MODE_CSS = `
   }
 `;
 
-// ─── Main export ──────────────────────────────────────────────────────────────
-
-/**
- * cleanPage
- *
- * Injects JS into the given Playwright page to:
- * 1. Hide common overlay/banner selectors using smart heuristics and whitelist
- * 2. (Optionally) apply Reader Mode typography for maximum content clarity
- */
 export async function cleanPage(
   page: Page,
   options: CleanPageOptions = {}
 ): Promise<void> {
   const { readerMode = true } = options;
 
-  // 1 & 2 & 3 & 4: JS-based removal with whitelist and smart targeting
-  // Using inline logic to avoid Playwright evaluate serialization errors with transpilers
   await page.evaluate(() => {
-    // 4. Preserve Apple Navigation & Structural Navigation
+    // ── Whitelisted structural containers (never hidden) ──────────────────
     const WHITELIST_SELECTORS = [
       'main',
       'article',
       '#grid',
-      'header',
-      'nav',
-      '.chapternav',
-      '[role="banner"]',
-      '[role="navigation"]',
+      '[role="main"]',
       '[id*="main"]',
       '[id*="content"]',
-      '[class*="product-grid"]'
+      '[class*="product-grid"]',
+      '[class*="story"]',
+      '[class*="article"]',
     ];
-    const KEYWORDS = ['cookie', 'privacy', 'shipping to', 'subscribe', 'sign in'];
-    
-    // 2. Isolate Ads and Interceptors Instead
+
+    // ── Definite noise — always remove ───────────────────────────────────
     const NOISE_SELECTORS = [
-      '[class*="ad-"]',
-      '[id*="ad-"]',
-      '[class*="sponsor"]',
-      '[id*="sponsor"]',
-      '[class*="related"]',
-      '[class*="social"]',
-      '[class*="share"]',
-      '[id*="comments"]'
+      // Ads
+      '[class*="ad-"]', '[id*="ad-"]', '[class*="-ad"]', '[id*="-ad"]',
+      '[class*="Ad"]', '[id*="Ad"]',
+      '[class*="advertisement"]', '[id*="advertisement"]',
+      '[data-ad-unit]', '[data-ad]', '[data-adunit]',
+      'ins.adsbygoogle',
+      // Sponsors/promos
+      '[class*="sponsor"]', '[id*="sponsor"]',
+      '[class*="promo"]', '[id*="promo"]',
+      // Social/share
+      '[class*="social"]', '[class*="share"]',
+      '[class*="follow"]', '[class*="Follow"]',
+      // Comments
+      '[id*="comments"]', '[id*="disqus"]', '[class*="comment"]',
+      // Related/recommended
+      '[class*="related"]', '[class*="recommended"]',
+      '[class*="more-stories"]', '[class*="also-read"]',
+      // Newsletter modals
+      '[class*="newsletter"]', '[class*="Newsletter"]',
+      '[class*="subscribe"]', '[class*="Subscribe"]',
+      // Cookie banners
+      '[id*="cookie"]', '[class*="cookie"]',
+      '[id*="gdpr"]', '[class*="gdpr"]',
+      '[id*="consent"]', '[class*="consent"]',
+      // NYTimes specific
+      '#standalone-footer',
+      '[data-testid="toolbar"]',
+      '[data-testid="nav-bar"]',
+      '[class*="PersistentBar"]',
+      '[class*="Masthead"]',
+      // Generic sticky navs (not main content)
+      'header nav', 'header > nav',
     ];
 
-    // 3. Convert Footers/Sidebars to "Secondary Verification"
-    const SECONDARY_SELECTORS = [
-      'footer',
-      'aside',
-      '[role="contentinfo"]',
-      '[role="complementary"]',
-      '[class*="footer"]',
-      '[id*="footer"]',
-      '[class*="sidebar"]',
-      '[id*="sidebar"]'
-    ];
+    const hostname = window.location.hostname;
 
-    // 1. Direct DOM Stripping for Known Interceptors
-    if (window.location.hostname.includes('amazon')) {
-      const amazonPopovers = document.querySelectorAll('.a-popover-wrapper, #a-popover-root, .a-declarative[data-action="a-popover"]');
-      for (let i = 0; i < amazonPopovers.length; i++) {
-        amazonPopovers[i].remove();
-      }
-      
-      const amazonScrollers = document.querySelectorAll('.a-scroller, #a-page');
-      for (let i = 0; i < amazonScrollers.length; i++) {
-        (amazonScrollers[i] as HTMLElement).style.setProperty('overflow', 'initial', 'important');
-      }
+    // ── Site-specific surgical removal ───────────────────────────────────
+    if (hostname.includes('nytimes')) {
+      const nytSelectors = [
+        '[data-testid="standalone-footer"]',
+        '[data-testid="nav-bar"]',
+        '[class*="HeaderBaseline"]',
+        '[class*="navigation-edge"]',
+        '.css-1ed3yvj', // subscription bar
+        '[class*="Paywall"]',
+        '[class*="paywall"]',
+        '[class*="gate"]',
+        '[class*="Gate"]',
+      ];
+      nytSelectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach(el => el.remove());
+      });
     }
 
-    const allElements = document.querySelectorAll('*');
-    
-    for (let i = 0; i < allElements.length; i++) {
-      const el = allElements[i] as HTMLElement;
-      if (!el.tagName) continue;
+    if (hostname.includes('amazon')) {
+      document.querySelectorAll(
+        '.a-popover-wrapper, #a-popover-root, .a-declarative[data-action="a-popover"]'
+      ).forEach(el => el.remove());
+      document.querySelectorAll('.a-scroller, #a-page').forEach(el => {
+        (el as HTMLElement).style.setProperty('overflow', 'initial', 'important');
+      });
+    }
 
-      // 1. Protect Main Elements Explicitly
-      let isProtected = false;
-      if (el === document.body || el === document.documentElement) {
-        isProtected = true;
-      } else {
-        try {
-          for (let w = 0; w < WHITELIST_SELECTORS.length; w++) {
-            if (el.matches(WHITELIST_SELECTORS[w]) || el.closest(WHITELIST_SELECTORS[w])) {
-              isProtected = true;
-              break;
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
+    if (hostname.includes('apple.com')) {
+      document.querySelectorAll(
+        '.ac-localnav, .ac-gn-sticky, [class*="globalnavplaceholder"]'
+      ).forEach(el => el.remove());
+    }
 
-      if (isProtected) continue;
-
-      const style = window.getComputedStyle(el);
-      const position = style.position;
-      
-      let shouldHide = false;
-      
-      // Check absolute noise (ads, social)
+    // ── Pass 1: Remove definite noise selectors ───────────────────────────
+    NOISE_SELECTORS.forEach(sel => {
       try {
-        for (let n = 0; n < NOISE_SELECTORS.length; n++) {
-          if (el.matches(NOISE_SELECTORS[n])) {
-            shouldHide = true;
-            break;
-          }
-        }
-      } catch (e) {}
-
-      // Secondary verification for footers/sidebars
-      if (!shouldHide) {
-        try {
-          for (let s = 0; s < SECONDARY_SELECTORS.length; s++) {
-            if (el.matches(SECONDARY_SELECTORS[s])) {
-              // Does it contain structured textual anchors or navigation trees?
-              const anchors = el.querySelectorAll('a');
-              let validLinks = 0;
-              for (let a = 0; a < anchors.length; a++) {
-                if ((anchors[a].textContent || '').trim().length > 0) {
-                  validLinks++;
-                }
-              }
-              const navs = el.querySelectorAll('nav, [role="navigation"]');
-              
-              // Only apply display: none if it's explicitly empty or just 1-2 tracking/social links
-              if (validLinks < 3 && navs.length === 0) {
-                shouldHide = true;
-              }
-              break;
-            }
-          }
-        } catch (e) {}
-      }
-
-      // Floating heuristic
-      if (!shouldHide && (position === 'fixed' || position === 'absolute')) {
-        const zIndex = parseInt(style.zIndex, 10);
-        const isHighZIndex = !isNaN(zIndex) && zIndex > 50;
-        
-        const rect = el.getBoundingClientRect();
-        const isFullViewport = rect.width >= window.innerWidth * 0.9 && rect.height >= window.innerHeight * 0.9;
-        
-        const bg = style.backgroundColor;
-        let isSemiTransparent = false;
-        if (bg.startsWith('rgba')) {
-          const parts = bg.substring(5, bg.length - 1).split(',');
-          if (parts.length === 4) {
-            const alpha = parseFloat(parts[3]);
-            if (alpha > 0 && alpha < 1) {
-              isSemiTransparent = true;
-            }
-          }
-        }
-        
-        // Dark backdrops
-        if (isFullViewport && (isSemiTransparent || isHighZIndex)) {
-          shouldHide = true;
-        } else if (isHighZIndex) {
-          // High z-index with specific keywords
-          const text = (el.textContent || '').toLowerCase();
-          for (let k = 0; k < KEYWORDS.length; k++) {
-            if (text.includes(KEYWORDS[k])) {
-              shouldHide = true;
-              break;
-            }
-          }
-        }
-      }
-
-      // Apply heuristic fix: display none only if no whitelist children
-      if (shouldHide) {
-        let containsWhitelist = false;
-        try {
-          for (let w = 0; w < WHITELIST_SELECTORS.length; w++) {
-            if (el.querySelector(WHITELIST_SELECTORS[w])) {
+        document.querySelectorAll(sel).forEach(el => {
+          let containsWhitelist = false;
+          for (const ws of WHITELIST_SELECTORS) {
+            if ((el as HTMLElement).querySelector?.(ws)) {
               containsWhitelist = true;
               break;
             }
           }
-        } catch(e) {}
+          if (!containsWhitelist) (el as HTMLElement).style.setProperty('display', 'none', 'important');
+        });
+      } catch (e) { /* ignore invalid selectors */ }
+    });
 
+    // ── Pass 2: Remove empty ad placeholder containers ────────────────────
+    // These are divs with explicit height/min-height in inline style but no text
+    // content — the #1 source of wasted tokens in NYTimes/news sites
+    document.querySelectorAll<HTMLElement>('div, section, aside').forEach(el => {
+      // Skip if it's a whitelisted container or has whitelisted children
+      for (const ws of WHITELIST_SELECTORS) {
+        try {
+          if (el.matches(ws) || el.closest(ws) || el.querySelector(ws)) return;
+        } catch (e) {}
+      }
+
+      const style = el.getAttribute('style') || '';
+      const hasExplicitHeight = /min-height\s*:\s*\d+px|height\s*:\s*\d+px/.test(style);
+      const textContent = (el.textContent || '').trim();
+      const hasNoMeaningfulText = textContent.length < 10;
+      const hasNoImages = el.querySelectorAll('img, picture, video').length === 0;
+      const hasNoLinks = el.querySelectorAll('a').length === 0;
+
+      if (hasExplicitHeight && hasNoMeaningfulText && hasNoImages && hasNoLinks) {
+        el.style.setProperty('display', 'none', 'important');
+        return;
+      }
+
+      // Also kill zero-content divs with data-ad attributes or aria-label "advertisement"
+      const ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
+      if (ariaLabel.includes('advertisement') || ariaLabel.includes('ad slot')) {
+        el.style.setProperty('display', 'none', 'important');
+        return;
+      }
+    });
+
+    // ── Pass 3: Floating overlay heuristic ────────────────────────────────
+    const KEYWORDS = ['cookie', 'privacy', 'shipping to', 'subscribe', 'sign in', 'sign up', 'newsletter'];
+
+    document.querySelectorAll<HTMLElement>('*').forEach(el => {
+      // Skip protected
+      for (const ws of WHITELIST_SELECTORS) {
+        try { if (el.matches(ws) || el.closest(ws)) return; } catch (e) {}
+      }
+      if (el === document.body || el === document.documentElement) return;
+
+      const style = window.getComputedStyle(el);
+      const position = style.position;
+      if (position !== 'fixed' && position !== 'absolute') return;
+
+      const zIndex = parseInt(style.zIndex, 10);
+      const isHighZIndex = !isNaN(zIndex) && zIndex > 50;
+      if (!isHighZIndex) return;
+
+      const rect = el.getBoundingClientRect();
+      const isFullViewport =
+        rect.width >= window.innerWidth * 0.8 &&
+        rect.height >= window.innerHeight * 0.5;
+
+      const bg = style.backgroundColor;
+      let isSemiTransparent = false;
+      if (bg.startsWith('rgba')) {
+        const alpha = parseFloat(bg.split(',')[3]);
+        if (alpha > 0 && alpha < 1) isSemiTransparent = true;
+      }
+
+      const text = (el.textContent || '').toLowerCase();
+      const hasKeyword = KEYWORDS.some(k => text.includes(k));
+
+      if (isFullViewport || isSemiTransparent || hasKeyword) {
+        let containsWhitelist = false;
+        for (const ws of WHITELIST_SELECTORS) {
+          try { if (el.querySelector(ws)) { containsWhitelist = true; break; } } catch (e) {}
+        }
         if (!containsWhitelist) {
           el.style.setProperty('display', 'none', 'important');
         }
       }
-    }
+    });
 
-    // Reset overflow on body/html in case modals locked scrolling
+    // ── Unlock scroll ─────────────────────────────────────────────────────
     document.body.style.removeProperty('overflow');
     document.documentElement.style.removeProperty('overflow');
   });
 
-  // Apply Reader Mode (optional)
   if (readerMode) {
     await page.addStyleTag({ content: READER_MODE_CSS });
   }
