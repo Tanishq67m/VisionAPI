@@ -2,7 +2,10 @@
   "mcpServers": {
     "vision-api": {
       "command": "npx",
-      "args": ["tsx", "/Users/tanishqmohod/VisionAPI/src/mcp-server.ts"]
+      "args": [
+        "tsx",
+        "/Users/tanishqmohod/VisionAPI/src/mcp-server.ts"
+      ]
     }
   }
 }

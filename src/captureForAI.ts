@@ -184,7 +184,7 @@ export async function captureForAI(options: CaptureOptions): Promise<CaptureResu
     //   - Vision models (GPT-4o, Claude, Gemini) all accept WebP natively
     const screenshotBuffer = await page.screenshot({
       type: 'jpeg',
-      quality: 90,
+      quality: 50,
       fullPage: opts.fullPage,
       animations: 'disabled',   // Freeze CSS animations — avoids blur artifacts
       caret: 'hide',
@@ -198,9 +198,11 @@ export async function captureForAI(options: CaptureOptions): Promise<CaptureResu
     const viewportSize = page.viewportSize();
     const scaleFactor = opts.deviceScaleFactor!;
     const width = (viewportSize?.width ?? opts.viewportWidth!) * scaleFactor;
-    const height = opts.fullPage
-      ? screenshotBuffer.length / (width * 4)   // Approx from buffer size
-      : (viewportSize?.height ?? opts.viewportHeight!) * scaleFactor;
+    let height = (viewportSize?.height ?? opts.viewportHeight!) * scaleFactor;
+    if (opts.fullPage) {
+      const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+      height = scrollHeight * scaleFactor;
+    }
 
     return {
       buffer: screenshotBuffer,

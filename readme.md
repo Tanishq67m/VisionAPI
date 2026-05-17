@@ -16,7 +16,10 @@ src/
 ├── mcp-server.ts             ← 🚀 The MCP Server entry point
 ├── captureForAI.ts           ← main capture function + browser singleton
 ├── cli.ts                    ← local test runner (npx ts-node src/cli.ts <url>)
+├── benchmark.ts              ← 📊 Vision Token Optimization Benchmark Tool
 ├── nextjs-route.stub.ts      ← API route template
+├── lib/
+│   └── supabase.ts           ← Supabase client integration
 ├── types/
 │   └── capture.ts            ← TypeScript definitions and interfaces
 └── utils/
@@ -80,6 +83,17 @@ npx tsx src/cli.ts https://bbc.co.uk --full-page --wait-for "h1"
 npx tsx src/cli.ts https://nytimes.com --no-clean --output nyt-raw.jpeg
 npx tsx src/cli.ts https://nytimes.com --output nyt-clean.jpeg
 ```
+
+## 📊 Vision Token Optimization Benchmark
+
+The `benchmark.ts` script measures exactly how much payload overhead VisionAPI's Janitor logic eliminates for your LLMs. 
+
+```bash
+# Compare raw vs. cleaned screenshots, calculate vision tokens for GPT-4o & Claude 3.5, and measure exact financial savings.
+npx tsx src/benchmark.ts https://finance.yahoo.com
+```
+
+The benchmark tool uses `sharp` to analyze the generated buffers and will print a detailed Markdown financial comparison table directly to your console.
 
 ## 💻 Usage in Code (As a Library)
 

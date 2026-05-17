@@ -3,3 +3,4 @@ dist/
 *.jpeg
 *.webp
 .DS_Store
+.env

@@ -1,114 +1,16 @@
 import type { Page } from 'playwright';
 import type { CleanPageOptions } from '../types/capture.js';
 
-// ─── Selectors that commonly match cookie banners, modals, and UI noise ───────
-//
-// Strategy: broad attribute-based selectors catch most dynamic class names.
-// Order matters — more specific selectors first.
-
-export const OVERLAY_SELECTORS: string[] = [
-  // Cookie / GDPR banners
-  '[class*="cookie"]',
-  '[id*="cookie"]',
-  '[class*="gdpr"]',
-  '[id*="gdpr"]',
-  '[class*="consent"]',
-  '[id*="consent"]',
-  '[class*="privacy-banner"]',
-  '[id*="privacy-banner"]',
-  '[class*="cc-banner"]',
-  '[id*="cc-"]',
-
-  // Generic modals & overlays
-  '[class*="modal"]',
-  '[id*="modal"]',
-  '[class*="overlay"]',
-  '[id*="overlay"]',
-  '[class*="popup"]',
-  '[id*="popup"]',
-  '[class*="lightbox"]',
-  '[id*="lightbox"]',
-  '[role="dialog"]',
-  '[aria-modal="true"]',
-
-  // Newsletter / subscribe
-  '[class*="newsletter"]',
-  '[id*="newsletter"]',
-  '[class*="subscribe"]',
-  '[id*="subscribe"]',
-
-  // Paywalls
-  '[class*="paywall"]',
-  '[id*="paywall"]',
-  '[class*="gate"]',
-  '[id*="subscription-gate"]',
-
-  // Chat widgets & live support
-  '[id="intercom-container"]',
-  '[class*="intercom"]',
-  '[id*="drift"]',
-  '[class*="drift"]',
-  '[id*="hubspot"]',
-  '#hubspot-messages-iframe-container',
-  '[class*="livechat"]',
-  '[id*="livechat"]',
-  '[class*="crisp-client"]',
-  '#crisp-chatbox',
-
-  // Sticky headers & floating nav (kept minimal — headers can carry context)
-  // Only hide if they obscure content below
-  '[class*="sticky-header"]',
-  '[class*="fixed-header"]',
-
-  // Notification / alert bars (top-of-page banners)
-  '[class*="announcement-bar"]',
-  '[class*="top-banner"]',
-  '[class*="promo-bar"]',
-
-  // GDPR overlay backdrops
-  '[class*="cookie-overlay"]',
-  '[id*="cookie-overlay"]',
-  '.fc-consent-root',
-  '#onetrust-consent-sdk',
-  '#CybotCookiebotDialog',
-  '.optanon-alert-box-wrapper',
-  '.qc-cmp2-container',
-];
-
 // ─── Reader Mode styles ───────────────────────────────────────────────────────
 //
 // Stripped-down typography that helps vision models focus on content,
 // not design chrome. Intentionally opinionated.
 
 const READER_MODE_CSS = `
-  body {
-    font-family: Georgia, 'Times New Roman', serif !important;
-    font-size: 18px !important;
-    line-height: 1.8 !important;
-    color: #1a1a1a !important;
-    background: #ffffff !important;
-    max-width: 720px !important;
-    margin: 0 auto !important;
-    padding: 2rem !important;
-  }
-
-  /* Kill multi-column layouts */
-  * {
-    column-count: unset !important;
-    column-width: unset !important;
-    float: none !important;
-  }
-
-  /* Remove busy background images from containers */
-  div, section, article, header, main {
-    background-image: none !important;
-  }
-
-  /* Ensure links are readable without hover */
-  a { color: #0066cc !important; text-decoration: underline !important; }
-
-  /* Kill fixed/sticky positioning on everything — prevents elements
-     from covering content when we scroll/resize */
+  /* 
+    Aggressively force all elements to drop fixed positioning to flow naturally, 
+    but without corrupting flex/grid max-widths that cause vertical inflation.
+  */
   [style*="position: fixed"],
   [style*="position:fixed"],
   [style*="position: sticky"],
@@ -122,13 +24,9 @@ const READER_MODE_CSS = `
 /**
  * cleanPage
  *
- * Injects CSS and JS into the given Playwright page to:
- * 1. Hide common overlay/banner selectors via display:none
+ * Injects JS into the given Playwright page to:
+ * 1. Hide common overlay/banner selectors using smart heuristics and whitelist
  * 2. (Optionally) apply Reader Mode typography for maximum content clarity
- *
- * Safe to call before or after navigation. Uses `addStyleTag` + `evaluate`
- * so it runs in the page context and survives SPA re-renders triggered by
- * the `waitForLoadState` call that follows.
  */
 export async function cleanPage(
   page: Page,
@@ -136,29 +34,186 @@ export async function cleanPage(
 ): Promise<void> {
   const { readerMode = true } = options;
 
-  // 1. Hide overlays via injected <style> block —
-  //    Using !important ensures we override inline styles too.
-  const overlayCSS = OVERLAY_SELECTORS.map(
-    (selector) => `${selector} { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }`
-  ).join('\n');
+  // 1 & 2 & 3 & 4: JS-based removal with whitelist and smart targeting
+  // Using inline logic to avoid Playwright evaluate serialization errors with transpilers
+  await page.evaluate(() => {
+    // 4. Preserve Apple Navigation & Structural Navigation
+    const WHITELIST_SELECTORS = [
+      'main',
+      'article',
+      '#grid',
+      'header',
+      'nav',
+      '.chapternav',
+      '[role="banner"]',
+      '[role="navigation"]',
+      '[id*="main"]',
+      '[id*="content"]',
+      '[class*="product-grid"]'
+    ];
+    const KEYWORDS = ['cookie', 'privacy', 'shipping to', 'subscribe', 'sign in'];
+    
+    // 2. Isolate Ads and Interceptors Instead
+    const NOISE_SELECTORS = [
+      '[class*="ad-"]',
+      '[id*="ad-"]',
+      '[class*="sponsor"]',
+      '[id*="sponsor"]',
+      '[class*="related"]',
+      '[class*="social"]',
+      '[class*="share"]',
+      '[id*="comments"]'
+    ];
 
-  await page.addStyleTag({ content: overlayCSS });
+    // 3. Convert Footers/Sidebars to "Secondary Verification"
+    const SECONDARY_SELECTORS = [
+      'footer',
+      'aside',
+      '[role="contentinfo"]',
+      '[role="complementary"]',
+      '[class*="footer"]',
+      '[id*="footer"]',
+      '[class*="sidebar"]',
+      '[id*="sidebar"]'
+    ];
 
-  // 2. JS-based removal for elements that resist CSS hiding
-  //    (e.g. elements rendered via Shadow DOM or canvas overlays)
-  await page.evaluate((selectors: string[]) => {
-    for (const selector of selectors) {
-      document.querySelectorAll(selector).forEach((el) => {
-        (el as HTMLElement).style.setProperty('display', 'none', 'important');
-      });
+    // 1. Direct DOM Stripping for Known Interceptors
+    if (window.location.hostname.includes('amazon')) {
+      const amazonPopovers = document.querySelectorAll('.a-popover-wrapper, #a-popover-root, .a-declarative[data-action="a-popover"]');
+      for (let i = 0; i < amazonPopovers.length; i++) {
+        amazonPopovers[i].remove();
+      }
+      
+      const amazonScrollers = document.querySelectorAll('.a-scroller, #a-page');
+      for (let i = 0; i < amazonScrollers.length; i++) {
+        (amazonScrollers[i] as HTMLElement).style.setProperty('overflow', 'initial', 'important');
+      }
     }
 
-    // Also remove any <body> overflow:hidden that modals love to inject
+    const allElements = document.querySelectorAll('*');
+    
+    for (let i = 0; i < allElements.length; i++) {
+      const el = allElements[i] as HTMLElement;
+      if (!el.tagName) continue;
+
+      // 1. Protect Main Elements Explicitly
+      let isProtected = false;
+      if (el === document.body || el === document.documentElement) {
+        isProtected = true;
+      } else {
+        try {
+          for (let w = 0; w < WHITELIST_SELECTORS.length; w++) {
+            if (el.matches(WHITELIST_SELECTORS[w]) || el.closest(WHITELIST_SELECTORS[w])) {
+              isProtected = true;
+              break;
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      if (isProtected) continue;
+
+      const style = window.getComputedStyle(el);
+      const position = style.position;
+      
+      let shouldHide = false;
+      
+      // Check absolute noise (ads, social)
+      try {
+        for (let n = 0; n < NOISE_SELECTORS.length; n++) {
+          if (el.matches(NOISE_SELECTORS[n])) {
+            shouldHide = true;
+            break;
+          }
+        }
+      } catch (e) {}
+
+      // Secondary verification for footers/sidebars
+      if (!shouldHide) {
+        try {
+          for (let s = 0; s < SECONDARY_SELECTORS.length; s++) {
+            if (el.matches(SECONDARY_SELECTORS[s])) {
+              // Does it contain structured textual anchors or navigation trees?
+              const anchors = el.querySelectorAll('a');
+              let validLinks = 0;
+              for (let a = 0; a < anchors.length; a++) {
+                if ((anchors[a].textContent || '').trim().length > 0) {
+                  validLinks++;
+                }
+              }
+              const navs = el.querySelectorAll('nav, [role="navigation"]');
+              
+              // Only apply display: none if it's explicitly empty or just 1-2 tracking/social links
+              if (validLinks < 3 && navs.length === 0) {
+                shouldHide = true;
+              }
+              break;
+            }
+          }
+        } catch (e) {}
+      }
+
+      // Floating heuristic
+      if (!shouldHide && (position === 'fixed' || position === 'absolute')) {
+        const zIndex = parseInt(style.zIndex, 10);
+        const isHighZIndex = !isNaN(zIndex) && zIndex > 50;
+        
+        const rect = el.getBoundingClientRect();
+        const isFullViewport = rect.width >= window.innerWidth * 0.9 && rect.height >= window.innerHeight * 0.9;
+        
+        const bg = style.backgroundColor;
+        let isSemiTransparent = false;
+        if (bg.startsWith('rgba')) {
+          const parts = bg.substring(5, bg.length - 1).split(',');
+          if (parts.length === 4) {
+            const alpha = parseFloat(parts[3]);
+            if (alpha > 0 && alpha < 1) {
+              isSemiTransparent = true;
+            }
+          }
+        }
+        
+        // Dark backdrops
+        if (isFullViewport && (isSemiTransparent || isHighZIndex)) {
+          shouldHide = true;
+        } else if (isHighZIndex) {
+          // High z-index with specific keywords
+          const text = (el.textContent || '').toLowerCase();
+          for (let k = 0; k < KEYWORDS.length; k++) {
+            if (text.includes(KEYWORDS[k])) {
+              shouldHide = true;
+              break;
+            }
+          }
+        }
+      }
+
+      // Apply heuristic fix: display none only if no whitelist children
+      if (shouldHide) {
+        let containsWhitelist = false;
+        try {
+          for (let w = 0; w < WHITELIST_SELECTORS.length; w++) {
+            if (el.querySelector(WHITELIST_SELECTORS[w])) {
+              containsWhitelist = true;
+              break;
+            }
+          }
+        } catch(e) {}
+
+        if (!containsWhitelist) {
+          el.style.setProperty('display', 'none', 'important');
+        }
+      }
+    }
+
+    // Reset overflow on body/html in case modals locked scrolling
     document.body.style.removeProperty('overflow');
     document.documentElement.style.removeProperty('overflow');
-  }, OVERLAY_SELECTORS);
+  });
 
-  // 3. Reader Mode (optional)
+  // Apply Reader Mode (optional)
   if (readerMode) {
     await page.addStyleTag({ content: READER_MODE_CSS });
   }
