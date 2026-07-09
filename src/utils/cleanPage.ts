@@ -84,6 +84,22 @@ export async function cleanPage(
       nytSelectors.forEach(sel => {
         document.querySelectorAll(sel).forEach(el => el.remove());
       });
+
+      // Remove ad slot containers by data attribute
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid*="ad"], [data-testid*="Ad"], ' +
+        '[class*="ad-slot"], [class*="AdSlot"], ' +
+        '[id*="adSlot"], [class*="adUnit"]'
+      ).forEach(el => el.remove());
+
+      // Remove empty min-height containers (ghost ad placeholders)
+      document.querySelectorAll<HTMLElement>('div[style]').forEach(el => {
+        const s = el.getAttribute('style') || '';
+        if (/min-height\s*:\s*[1-9]\d+px/.test(s)) {
+          const text = (el.textContent || '').trim();
+          if (text.length < 5) el.remove();
+        }
+      });
     }
 
     if (hostname.includes('amazon')) {
@@ -112,7 +128,7 @@ export async function cleanPage(
               break;
             }
           }
-          if (!containsWhitelist) (el as HTMLElement).style.setProperty('display', 'none', 'important');
+          if (!containsWhitelist) (el as HTMLElement).remove();
         });
       } catch (e) { /* ignore invalid selectors */ }
     });
@@ -136,14 +152,14 @@ export async function cleanPage(
       const hasNoLinks = el.querySelectorAll('a').length === 0;
 
       if (hasExplicitHeight && hasNoMeaningfulText && hasNoImages && hasNoLinks) {
-        el.style.setProperty('display', 'none', 'important');
+        el.remove();
         return;
       }
 
       // Also kill zero-content divs with data-ad attributes or aria-label "advertisement"
       const ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
       if (ariaLabel.includes('advertisement') || ariaLabel.includes('ad slot')) {
-        el.style.setProperty('display', 'none', 'important');
+        el.remove();
         return;
       }
     });
@@ -187,10 +203,42 @@ export async function cleanPage(
           try { if (el.querySelector(ws)) { containsWhitelist = true; break; } } catch (e) {}
         }
         if (!containsWhitelist) {
-          el.style.setProperty('display', 'none', 'important');
+          el.remove();
         }
       }
     });
+
+    // ── Pass 4: Collapse empty ancestor containers ────────────────────────────
+    // After removal, walk up and kill containers that are now empty shells
+    // with explicit height — these are the ghost boxes holding page height open.
+    const allContainers = Array.from(document.querySelectorAll<HTMLElement>('div, section, aside, span'));
+    // Process deepest nodes first (reverse DOM order approximation)
+    for (let i = allContainers.length - 1; i >= 0; i--) {
+      const el = allContainers[i];
+      
+      // Skip protected
+      let skip = false;
+      for (const ws of WHITELIST_SELECTORS) {
+        try { if (el.matches(ws) || el.closest(ws) || el.querySelector(ws)) { skip = true; break; } } catch(e) {}
+      }
+      if (skip) continue;
+      if (el === document.body || el === document.documentElement) continue;
+
+      const text = (el.textContent || '').trim();
+      const hasImages = el.querySelectorAll('img, picture, video, canvas, svg').length > 0;
+      const hasLinks = el.querySelectorAll('a[href]').length > 0;
+      
+      // Empty: no text, no media, no links
+      if (text.length === 0 && !hasImages && !hasLinks) {
+        // Check it had an explicit height (ad slot ghost)
+        const style = el.getAttribute('style') || '';
+        const computed = window.getComputedStyle(el);
+        const hasHeight = /height\s*:\s*\d+px/.test(style) || parseInt(computed.minHeight) > 0;
+        if (hasHeight) {
+          el.remove();
+        }
+      }
+    }
 
     // ── Unlock scroll ─────────────────────────────────────────────────────
     document.body.style.removeProperty('overflow');

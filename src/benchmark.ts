@@ -53,7 +53,17 @@ async function runBenchmark(url: string) {
   const outputDir = path.join('dist', 'benchmark');
   fs.mkdirSync(outputDir, { recursive: true });
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--hide-scrollbars',
+      '--mute-audio',
+    ],
+  });
 
   let rawBuffer: Buffer, cleanBuffer: Buffer;
 
@@ -63,10 +73,14 @@ async function runBenchmark(url: string) {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 2,
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     });
     const page = await context.newPage();
-    console.log('   Navigating to URL, waiting for networkidle...');
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    console.log('   Navigating to URL, waiting for page load...');
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await smartWait(page, {});
+    // Force exact width to prevent horizontal bleed from breaking GPT token math baselines
+    await page.addStyleTag({ content: 'html, body { overflow-x: hidden !important; max-width: 100% !important; }' });
     rawBuffer = await page.screenshot({ type: 'jpeg', quality: 80, fullPage: true });
     fs.writeFileSync(path.join(outputDir, 'raw.jpeg'), rawBuffer);
     console.log('   ✅ Saved to dist/benchmark/raw.jpeg');
@@ -79,10 +93,11 @@ async function runBenchmark(url: string) {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 2,
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     });
     const page = await context.newPage();
     console.log('   Running smartWait and cleanPage overlay removal logic...');
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await smartWait(page, {});
     await cleanPage(page, { readerMode: true });
     cleanBuffer = await page.screenshot({ type: 'jpeg', quality: 80, fullPage: true });
@@ -95,11 +110,24 @@ async function runBenchmark(url: string) {
 
   // ── Analysis ──────────────────────────────────────────────────────────────
   console.log('\n📏 Analyzing image buffers with sharp...');
-  const rawMeta = await sharp(rawBuffer).metadata();
+  let rawMeta = await sharp(rawBuffer).metadata();
   const cleanMeta = await sharp(cleanBuffer).metadata();
 
-  const rW = rawMeta.width!, rH = rawMeta.height!;
+  // Normalize rawBuffer width to 2560 if it expanded due to horizontal overflow
+  if (rawMeta.width! > 2560) {
+    rawBuffer = await sharp(rawBuffer)
+      .extract({ left: 0, top: 0, width: 2560, height: rawMeta.height! })
+      .toBuffer();
+  }
+
+  const rW = rawMeta.width! > 2560 ? 2560 : rawMeta.width!, rH = rawMeta.height!;
   const cW = cleanMeta.width!, cH = cleanMeta.height!;
+
+  const heightDeltaPx = rH - cH;
+  const heightDeltaPct = ((heightDeltaPx / rH) * 100).toFixed(1);
+  console.log(`\n🔍 **Height Analysis:**`);
+  console.log(`   Height delta: ${heightDeltaPx}px (${heightDeltaPct}% reduction)`);
+  console.log(`   Token delta driven by: ${heightDeltaPx > 500 ? 'meaningful DOM collapse ✅' : 'mostly cosmetic hiding ⚠️ — DOM nodes still holding layout'}`);
 
   const rawClaude = claudeTokens(rW, rH);
   const cleanClaude = claudeTokens(cW, cH);

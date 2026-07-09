@@ -12,7 +12,14 @@
     "mcp": "tsx src/mcp-server.ts",
     "mcp:build": "tsc && node dist/mcp-server.js",
     "typecheck": "tsc --noEmit",
-    "inspector": "npx @modelcontextprotocol/inspector tsx src/mcp-server.ts"
+    "inspector": "npx @modelcontextprotocol/inspector tsx src/mcp-server.ts",
+    "test:unit": "jest cleanPage.test.ts",
+    "test:integration": "jest capture.integration.ts --runInBand --timeout=120000",
+    "test:mcp": "jest mcp.smoke.ts --runInBand",
+    "test:bench": "npx tsx src/benchmark.ts https://www.cnn.com && npx tsx src/benchmark.ts https://www.apple.com/mac/",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:bench",
+    "playground:server": "tsx playground/server.js",
+    "playground:ui": "npm run dev --prefix playground"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
@@ -25,8 +32,16 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^20.0.0",
     "@types/sharp": "^0.31.1",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "jest": "^30.4.2",
+    "jsdom": "^22.1.0",
+    "ts-jest": "^29.4.11",
+    "ts-node": "^10.9.2",
     "tsx": "^4.19.0",
     "typescript": "^5.4.0"
   }

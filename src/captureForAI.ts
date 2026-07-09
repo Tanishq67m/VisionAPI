@@ -169,7 +169,7 @@ export async function captureForAI(options: CaptureOptions): Promise<CaptureResu
     if (!opts.skipClean) {
       await cleanPage(page, { readerMode: true });
       // Brief pause to let the DOM settle after style injection
-      await page.waitForTimeout(150);
+      await page.waitForTimeout(600);
     }
 
     // ── Capture metadata before screenshot ───────────────────────────────────
