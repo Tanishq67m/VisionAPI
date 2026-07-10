@@ -39,7 +39,8 @@ function App() {
       // In a real app we'd do this smartly, but for playground we'll fetch both if split view is requested.
       
       const fetchCapture = async (skip: boolean) => {
-        const apiUrl = import.meta.env.DEV ? 'http://localhost:3001/api/capture' : '/api/capture';
+        const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        const apiUrl = isLocal ? 'http://localhost:3001/api/capture' : '/api/capture';
         const res = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
