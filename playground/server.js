@@ -2,11 +2,20 @@ import express from 'express';
 import cors from 'cors';
 import { captureForAI, closeBrowser } from '../src/index.ts';
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the Vite build
+app.use(express.static(path.join(__dirname, 'dist')));
 
 app.post('/api/capture', async (req, res) => {
   const { url, fullPage, skipClean, waitForSelector, viewportWidth, timeoutMs } = req.body;
@@ -50,6 +59,11 @@ app.post('/api/capture', async (req, res) => {
     console.error('Capture error:', error);
     res.status(500).json({ error: error.message || 'Capture failed' });
   }
+});
+
+// Catch-all route to serve the React SPA
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Cleanup on exit
