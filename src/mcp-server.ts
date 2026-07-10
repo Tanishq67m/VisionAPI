@@ -239,18 +239,15 @@ server.registerTool(
     },
   },
   async () => {
-    // Dynamically import to avoid circular deps
-    const { OVERLAY_SELECTORS } = await import("./utils/cleanPage.js");
     return {
       content: [
         {
           type: "text" as const,
           text:
-            `Vision-MCP removes ${OVERLAY_SELECTORS.length} overlay selectors:\n\n` +
-            OVERLAY_SELECTORS.map((s: string) => `  ${s}`).join("\n"),
+            `Vision-MCP automatically removes popups, cookie banners, and sticky headers.\n\n`,
         },
       ],
-      structuredContent: { selectors: OVERLAY_SELECTORS, count: OVERLAY_SELECTORS.length },
+      structuredContent: { },
     };
   }
 );

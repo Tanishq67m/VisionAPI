@@ -1,4 +1,4 @@
-import { captureForAI } from '../index';
+import { captureForAI } from '../index.js';
 
 const TEST_URLS = [
   { url: 'https://www.cnn.com', expectedReduction: 0.20 },
