@@ -62,7 +62,7 @@ app.post('/api/capture', async (req, res) => {
 });
 
 // Catch-all route to serve the React SPA
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
