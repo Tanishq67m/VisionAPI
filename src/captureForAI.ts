@@ -1,6 +1,7 @@
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { cleanPage } from './utils/cleanPage.js';
 import { smartWait } from './utils/smartWait.js';
+import { extractInteractiveElements } from './utils/domExtractor.js';
 import { CaptureError } from './types/capture.js';
 import type {
   CaptureOptions,
@@ -18,6 +19,7 @@ const DEFAULTS = {
   timeoutMs: 30_000,
   blockResourceTypes: ['font', 'media'] as ResourceType[],
   skipClean: false,
+  extractElements: false,
 } satisfies Partial<CaptureOptions>;
 
 // ─── Browser singleton ────────────────────────────────────────────────────────
@@ -175,6 +177,12 @@ export async function captureForAI(options: CaptureOptions): Promise<CaptureResu
     // ── Capture metadata before screenshot ───────────────────────────────────
     const pageTitle = await page.title();
     const resolvedUrl = page.url();
+    
+    // ── Extract interactive elements if requested ────────────────────────────
+    let elements;
+    if (opts.extractElements) {
+      elements = await extractInteractiveElements(page, opts.deviceScaleFactor!);
+    }
 
     // ── Screenshot ───────────────────────────────────────────────────────────
     //
@@ -213,6 +221,7 @@ export async function captureForAI(options: CaptureOptions): Promise<CaptureResu
       sizeBytes: screenshotBuffer.length,
       resolvedUrl,
       pageTitle,
+      ...(elements ? { elements } : {}),
     };
   } catch (err) {
     // Re-throw CaptureErrors as-is; wrap anything unexpected

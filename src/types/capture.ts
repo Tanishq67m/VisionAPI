@@ -43,6 +43,25 @@ export interface CaptureOptions {
    * Skip the clean-page pass (useful for debugging raw vs. clean diffs).
    */
   skipClean?: boolean;
+
+  /**
+   * Extract interactive elements and their bounding boxes (Phase 3 DOM Understanding).
+   */
+  extractElements?: boolean;
+}
+
+export interface InteractiveElement {
+  id: string;
+  tagName: string;
+  role?: string;
+  text?: string;
+  href?: string;
+  bbox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export type ResourceType =
@@ -81,6 +100,9 @@ export interface CaptureResult {
 
   /** Page title extracted at capture time */
   pageTitle: string;
+
+  /** Extracted interactive elements if extractElements was true */
+  elements?: InteractiveElement[];
 }
 
 export interface CleanPageOptions {
