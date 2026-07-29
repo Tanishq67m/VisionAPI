@@ -4,7 +4,12 @@ import { supabase } from './lib/supabaseClient';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Playground from './pages/Playground';
+import Landing from './pages/Landing';
 import { LayoutDashboard, TerminalSquare, LogOut } from 'lucide-react';
+
+// Routes that never require authentication. The landing page and Observe
+// playground are the public, no-signup surfaces — they must always render.
+const PUBLIC_PATHS = ['/', '/playground', '/login'];
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -13,6 +18,12 @@ function App() {
   const location = useLocation();
 
   useEffect(() => {
+    if (!supabase) {
+      // No Supabase configured — run in public-only mode (landing + playground).
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
@@ -28,41 +39,51 @@ function App() {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
+    if (supabase) await supabase.auth.signOut();
+    navigate('/');
   };
 
   if (loading) {
-    return <div className="loading-screen"><div className="loading-spinner"></div></div>;
+    return (
+      <div className="loading-screen">
+        <div className="loading-spinner"></div>
+      </div>
+    );
   }
 
-  // If not logged in and not on login page, redirect to login
-  if (!session && location.pathname !== '/login') {
+  const isPublic = PUBLIC_PATHS.includes(location.pathname);
+
+  // Protected routes (e.g. /dashboard) require a session.
+  if (!session && !isPublic) {
     return <Navigate to="/login" replace />;
   }
 
-  // If logged in and on login page, redirect to dashboard
+  // Logged-in users landing on /login go to the dashboard.
   if (session && location.pathname === '/login') {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
+  // The landing page is full-bleed and has its own chrome — no app sidebar.
+  const isLanding = location.pathname === '/';
+  const showSidebar = !!session && !isLanding;
+
   return (
-    <div className="app-layout">
-      {session && (
+    <div className={isLanding ? 'landing-shell' : 'app-layout'}>
+      {showSidebar && (
         <aside className="app-sidebar">
           <div className="app-logo">
             <div className="logo-icon"></div>
             VisionStream
           </div>
           <nav className="app-nav">
-            <button 
-              className={`nav-btn ${location.pathname === '/' ? 'active' : ''}`}
-              onClick={() => navigate('/')}
+            <button
+              className={`nav-btn ${location.pathname === '/dashboard' ? 'active' : ''}`}
+              onClick={() => navigate('/dashboard')}
             >
               <LayoutDashboard size={18} />
               Dashboard
             </button>
-            <button 
+            <button
               className={`nav-btn ${location.pathname === '/playground' ? 'active' : ''}`}
               onClick={() => navigate('/playground')}
             >
@@ -70,19 +91,22 @@ function App() {
               Playground
             </button>
           </nav>
-          
+
           <button className="nav-btn logout-btn" onClick={handleLogout}>
             <LogOut size={18} />
             Sign Out
           </button>
         </aside>
       )}
-      
-      <main className="app-content">
+
+      <main className={isLanding ? 'landing-main' : 'app-content'}>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Dashboard session={session} />} />
           <Route path="/playground" element={<Playground />} />
+          <Route path="/dashboard" element={<Dashboard session={session} />} />
+          {/* Any unknown route falls back to the landing page */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>

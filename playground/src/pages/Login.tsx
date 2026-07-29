@@ -17,6 +17,9 @@ export default function Login() {
     setMessage('');
     
     try {
+      if (!supabase) {
+        throw new Error('Auth is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to playground/.env to enable login.');
+      }
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,

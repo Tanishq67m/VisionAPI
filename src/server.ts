@@ -162,6 +162,108 @@ app.post('/capture', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /observe:
+ *   post:
+ *     summary: Return a structured understanding of a web page (Observe API)
+ *     description: >
+ *       Navigates to a URL, cleans it, and returns structured page intelligence —
+ *       headings, buttons, links, forms, tables, inputs, images, and a flat list of
+ *       interactive elements with bounding boxes — so an AI agent can understand the
+ *       page without inferring everything from pixels. Optionally includes the screenshot.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - url
+ *             properties:
+ *               url:
+ *                 type: string
+ *               includeScreenshot:
+ *                 type: boolean
+ *               waitForSelector:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Structured page observation
+ *       400:
+ *         description: Missing or invalid URL
+ *       401:
+ *         description: Unauthorized (invalid API key)
+ */
+app.post('/observe', requireAuth, async (req, res) => {
+  const { url, includeScreenshot, waitForSelector, viewportWidth, timeoutMs, fullPage } = req.body;
+  const apiKeyId = req.apiKeyId || null;
+
+  if (!url || typeof url !== 'string') {
+    return res.status(400).json({ error: 'Valid URL is required' });
+  }
+
+  const startTime = Date.now();
+  let status: 'success' | 'error' = 'success';
+  let sizeBytes = 0;
+
+  try {
+    const result = await queue.add(async () => {
+      return await captureForAI({
+        url,
+        fullPage: !!fullPage,
+        skipClean: false,
+        observe: true,
+        waitForSelector: waitForSelector || undefined,
+        viewportWidth: viewportWidth || 1280,
+        timeoutMs: timeoutMs || 30000,
+      });
+    });
+
+    if (!result) {
+      throw new Error('Observe failed internally');
+    }
+
+    sizeBytes = result.sizeBytes;
+
+    // Only upload/return the image if the caller explicitly asked for it.
+    let imageUrl: string | null = null;
+    if (includeScreenshot) {
+      const filename = `observe_${Date.now()}_${Math.random().toString(36).substring(7)}.jpeg`;
+      imageUrl = await uploadToStorage(result.buffer, filename);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...(imageUrl ? { image_url: imageUrl } : {}),
+        observation: result.observation,
+        metadata: {
+          title: result.pageTitle,
+          resolvedUrl: result.resolvedUrl,
+        },
+        processing_time: result.captureTimeMs,
+      },
+    });
+  } catch (error: any) {
+    status = 'error';
+    console.error('Observe error:', error);
+    const statusCode = error instanceof CaptureError ? 422 : 500;
+    res.status(statusCode).json({ error: error.message || 'Observe failed' });
+  } finally {
+    const latencyMs = Date.now() - startTime;
+    logRequest({
+      apiKeyId,
+      url,
+      latencyMs,
+      sizeBytes,
+      tokensSaved: 0,
+      costSaved: 0,
+      status,
+    }).catch(err => console.error('Logging failed:', err));
+  }
+});
+
 // Graceful Shutdown
 process.on('SIGINT', async () => {
   console.log('Shutting down server...');

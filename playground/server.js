@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { captureForAI, closeBrowser } from '../src/index.ts';
 
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -14,11 +15,21 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from the Vite build
-app.use(express.static(path.join(__dirname, 'dist')));
+// In production we serve the built Vite app from ./dist. In development the UI
+// is served by Vite (npm run playground:ui) on its own port, so dist won't
+// exist yet — only serve it when it's actually there.
+const distDir = path.join(__dirname, 'dist');
+const distIndex = path.join(distDir, 'index.html');
+const hasBuiltUI = fs.existsSync(distIndex);
+if (hasBuiltUI) {
+  app.use(express.static(distDir));
+}
+
+// Simple health check
+app.get('/health', (_req, res) => res.json({ status: 'ok', ui: hasBuiltUI ? 'built' : 'dev' }));
 
 app.post('/api/capture', async (req, res) => {
-  const { url, fullPage, skipClean, waitForSelector, viewportWidth, timeoutMs } = req.body;
+  const { url, fullPage, skipClean, waitForSelector, viewportWidth, timeoutMs, observe } = req.body;
 
   if (!url) {
     return res.status(400).json({ error: 'URL is required' });
@@ -32,6 +43,7 @@ app.post('/api/capture', async (req, res) => {
       waitForSelector: waitForSelector || undefined,
       viewportWidth: viewportWidth || 1280,
       timeoutMs: timeoutMs || 30000,
+      observe: observe !== false, // Observe on by default in the playground
     });
 
     const base64Image = result.buffer.toString('base64');
@@ -52,7 +64,8 @@ app.post('/api/capture', async (req, res) => {
           timeMs: result.captureTimeMs,
           title: result.pageTitle,
           resolvedUrl: result.resolvedUrl
-        }
+        },
+        observation: result.observation || null
       }
     });
   } catch (error) {
@@ -61,9 +74,17 @@ app.post('/api/capture', async (req, res) => {
   }
 });
 
-// Catch-all route to serve the React SPA
+// Catch-all: serve the SPA in production, or a helpful hint in development.
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  if (hasBuiltUI) {
+    return res.sendFile(distIndex);
+  }
+  res.status(200).json({
+    service: 'visionstream-playground-api',
+    message:
+      'API is running. The UI is served separately by Vite in dev — open the Vite URL (http://localhost:3000/playground). To serve the UI from this server instead, run `npm run build` in the playground folder first.',
+    endpoints: ['POST /api/capture', 'GET /health'],
+  });
 });
 
 // Cleanup on exit

@@ -19,6 +19,7 @@
     "test:bench": "npx tsx src/benchmark.ts https://www.cnn.com && npx tsx src/benchmark.ts https://www.apple.com/mac/",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:bench",
     "start:api": "tsx src/server.ts",
+    "smoke:observe": "tsx src/smoke-observe.ts",
     "playground:server": "tsx playground/server.js",
     "playground:ui": "npm run dev --prefix playground"
   },

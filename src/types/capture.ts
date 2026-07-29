@@ -48,6 +48,94 @@ export interface CaptureOptions {
    * Extract interactive elements and their bounding boxes (Phase 3 DOM Understanding).
    */
   extractElements?: boolean;
+
+  /**
+   * Run the Observe engine — return a full structured understanding of the
+   * page (headings, buttons, links, forms, tables, inputs, images, and a
+   * flat list of interactive elements). This is the VisionStream Observe API.
+   */
+  observe?: boolean;
+}
+
+// ─── Observe engine types ─────────────────────────────────────────────────────
+
+export interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ObservedButton {
+  id: string;
+  text: string;
+  bbox: BoundingBox;
+}
+
+export interface ObservedLink {
+  text: string;
+  href: string;
+}
+
+export interface ObservedFormField {
+  type: string;
+  name?: string;
+  placeholder?: string;
+  label?: string;
+  required?: boolean;
+}
+
+export interface ObservedForm {
+  id: string;
+  action?: string;
+  method: string;
+  fields: ObservedFormField[];
+  bbox: BoundingBox;
+}
+
+export interface ObservedInput {
+  type: string;
+  name?: string;
+  placeholder?: string;
+}
+
+export interface ObservedTable {
+  id: string;
+  headers: string[];
+  rowCount: number;
+  bbox: BoundingBox;
+}
+
+export interface ObservedImage {
+  alt?: string;
+  src: string;
+}
+
+export interface ObservedHeading {
+  level: number;
+  text: string;
+}
+
+export interface PageObservation {
+  pageTitle: string;
+  headings: ObservedHeading[];
+  buttons: ObservedButton[];
+  links: ObservedLink[];
+  forms: ObservedForm[];
+  inputs: ObservedInput[];
+  tables: ObservedTable[];
+  images: ObservedImage[];
+  interactiveElements: InteractiveElement[];
+  counts: {
+    headings: number;
+    buttons: number;
+    links: number;
+    forms: number;
+    inputs: number;
+    tables: number;
+    images: number;
+    interactiveElements: number;
+  };
 }
 
 export interface InteractiveElement {
@@ -103,6 +191,9 @@ export interface CaptureResult {
 
   /** Extracted interactive elements if extractElements was true */
   elements?: InteractiveElement[];
+
+  /** Full structured page understanding if observe was true (Observe API) */
+  observation?: PageObservation;
 }
 
 export interface CleanPageOptions {

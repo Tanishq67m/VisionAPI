@@ -8,6 +8,7 @@
 export { captureForAI, closeBrowser } from './captureForAI.js';
 export { cleanPage } from './utils/cleanPage.js';
 export { smartWait } from './utils/smartWait.js';
+export { observePage } from './utils/observe.js';
 export type {
   CaptureOptions,
   CaptureResult,
@@ -15,5 +16,15 @@ export type {
   SmartWaitOptions,
   CaptureErrorCode,
   ResourceType,
+  PageObservation,
+  ObservedButton,
+  ObservedLink,
+  ObservedForm,
+  ObservedFormField,
+  ObservedInput,
+  ObservedTable,
+  ObservedImage,
+  ObservedHeading,
+  BoundingBox,
 } from './types/capture.js';
 export { CaptureError } from './types/capture.js';

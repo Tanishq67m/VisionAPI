@@ -20,6 +20,10 @@ export default function Dashboard({ session }: { session: any }) {
   }, [session]);
 
   const fetchDashboardData = async () => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     try {
       // 1. Fetch API Keys
       const { data: keys } = await supabase
@@ -60,6 +64,7 @@ export default function Dashboard({ session }: { session: any }) {
   };
 
   const generateApiKey = async () => {
+    if (!supabase) return;
     try {
       const newKey = `vs_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
       await supabase.from('api_keys').insert([

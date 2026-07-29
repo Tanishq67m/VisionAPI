@@ -2,6 +2,7 @@ import { chromium, type Browser, type BrowserContext, type Page } from 'playwrig
 import { cleanPage } from './utils/cleanPage.js';
 import { smartWait } from './utils/smartWait.js';
 import { extractInteractiveElements } from './utils/domExtractor.js';
+import { observePage } from './utils/observe.js';
 import { CaptureError } from './types/capture.js';
 import type {
   CaptureOptions,
@@ -109,6 +110,19 @@ export async function captureForAI(options: CaptureOptions): Promise<CaptureResu
       reducedMotion: 'reduce',
     });
 
+    // ── __name shim ──────────────────────────────────────────────────────────
+    //
+    // When this code runs through tsx/esbuild, esbuild wraps named functions
+    // with a `__name(fn, "name")` helper to preserve Function.name. Inside
+    // page.evaluate(), the function is serialized and executed in the browser,
+    // where `__name` is undefined → "ReferenceError: __name is not defined".
+    // Defining a no-op shim in the page's global scope makes those functions
+    // run correctly. Runs before every navigation, in every frame.
+    await context.addInitScript(() => {
+      // @ts-ignore — augmenting the browser window at runtime
+      window.__name = window.__name || ((fn) => fn);
+    });
+
     // ── Resource blocking ────────────────────────────────────────────────────
     //
     // Blocking fonts and media makes captures ~40% faster with no impact
@@ -167,21 +181,40 @@ export async function captureForAI(options: CaptureOptions): Promise<CaptureResu
       );
     }
 
-    // ── Clean page ───────────────────────────────────────────────────────────
+    // ── Capture metadata ─────────────────────────────────────────────────────
+    const pageTitle = await page.title();
+    const resolvedUrl = page.url();
+
+    // ── Observe / extract on the REAL page (BEFORE cleaning) ──────────────────
+    //
+    // Structured understanding must reflect the actual page — its buttons,
+    // images, forms and chrome. cleanPage() strips overlays and applies reader
+    // mode, which would erase exactly the elements Observe is meant to report.
+    // So run extraction first, then clean, then screenshot.
+    // Failures here are non-fatal: the screenshot is the primary product.
+    let elements;
+    if (opts.extractElements) {
+      try {
+        elements = await extractInteractiveElements(page, opts.deviceScaleFactor!);
+      } catch (err) {
+        console.error('[VisionStream] element extraction failed (non-fatal):', err);
+      }
+    }
+
+    let observation;
+    if (opts.observe) {
+      try {
+        observation = await observePage(page, opts.deviceScaleFactor!);
+      } catch (err) {
+        console.error('[VisionStream] observe failed (non-fatal):', err);
+      }
+    }
+
+    // ── Clean page (affects the screenshot only) ─────────────────────────────
     if (!opts.skipClean) {
       await cleanPage(page, { readerMode: true });
       // Brief pause to let the DOM settle after style injection
       await page.waitForTimeout(600);
-    }
-
-    // ── Capture metadata before screenshot ───────────────────────────────────
-    const pageTitle = await page.title();
-    const resolvedUrl = page.url();
-    
-    // ── Extract interactive elements if requested ────────────────────────────
-    let elements;
-    if (opts.extractElements) {
-      elements = await extractInteractiveElements(page, opts.deviceScaleFactor!);
     }
 
     // ── Screenshot ───────────────────────────────────────────────────────────
@@ -222,6 +255,7 @@ export async function captureForAI(options: CaptureOptions): Promise<CaptureResu
       resolvedUrl,
       pageTitle,
       ...(elements ? { elements } : {}),
+      ...(observation ? { observation } : {}),
     };
   } catch (err) {
     // Re-throw CaptureErrors as-is; wrap anything unexpected
