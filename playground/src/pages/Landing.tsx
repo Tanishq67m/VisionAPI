@@ -88,7 +88,39 @@ export default function Landing() {
           </button>
         </div>
         <div className="lp-hero-note">Paste a URL, hit Observe, watch the page turn into JSON.</div>
+
+        <div className="lp-trust">
+          <div className="lp-trust-row"><span className="lp-trust-label">Works with</span> GPT-4o · Claude · Gemini · OpenAI Agents SDK · LangChain</div>
+          <div className="lp-trust-row"><span className="lp-trust-label">Built on</span> Playwright · Chrome · MCP · TypeScript</div>
+        </div>
       </header>
+
+      <section className="lp-compare">
+        <h2 className="lp-h2">Why not just Playwright + a vision model?</h2>
+        <p className="lp-section-sub">Because you'd be paying a vision model to re-read the browser chrome on every call.</p>
+        <div className="lp-compare-grid">
+          <div className="lp-compare-col old">
+            <div className="lp-compare-tag">The usual way</div>
+            <ul className="lp-compare-list">
+              <li>Screenshot the whole page — banners, ads, nav and all</li>
+              <li>Send megapixels to GPT-4o and pay for every tile</li>
+              <li>Ask the model to <em>infer</em> buttons and forms from pixels</li>
+              <li>Get coordinates wrong, retry, burn more tokens</li>
+              <li>Write custom Playwright selectors per site</li>
+            </ul>
+          </div>
+          <div className="lp-compare-col new">
+            <div className="lp-compare-tag accent">With VisionStream</div>
+            <ul className="lp-compare-list">
+              <li>One call returns a cleaned, chrome-free screenshot</li>
+              <li>Plus structured JSON: links, forms, tables, buttons</li>
+              <li>Every element carries a bounding box — no inference</li>
+              <li>30–60% fewer vision tokens, every request</li>
+              <li>Works on any site, no per-site selectors</li>
+            </ul>
+          </div>
+        </div>
+      </section>
 
       <section className="lp-code-section">
         <div className="lp-code-card">
