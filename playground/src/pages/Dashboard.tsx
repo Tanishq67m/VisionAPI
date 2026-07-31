@@ -1,199 +1,146 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Activity, Key, DollarSign, Zap, Plus, Copy, Check } from 'lucide-react';
+import { LogoMark } from '../components/Logo';
+import { Activity, Zap, Coins, KeyRound, Plus, Copy, Check, Eye, EyeOff, ArrowRight, Terminal } from 'lucide-react';
 
 export default function Dashboard({ session }: { session: any }) {
-  const [stats, setStats] = useState({
-    requestsToday: 0,
-    requestsMonth: 0,
-    tokensSaved: 0,
-    costSaved: 0
-  });
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({ requestsToday: 0, requestsMonth: 0, tokensSaved: 0, costSaved: 0 });
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  
-  useEffect(() => {
-    if (session?.user) {
-      fetchDashboardData();
-    }
-  }, [session]);
+  const [creating, setCreating] = useState(false);
+  const [copied, setCopied] = useState('');
+  const [revealed, setRevealed] = useState(false);
 
-  const fetchDashboardData = async () => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
+  useEffect(() => { if (session?.user) fetchData(); else setLoading(false); }, [session]);
+
+  const fetchData = async () => {
+    if (!supabase) { setLoading(false); return; }
     try {
-      // 1. Fetch API Keys
-      const { data: keys } = await supabase
-        .from('api_keys')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
-      
+      const { data: keys } = await supabase.from('api_keys').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
       setApiKeys(keys || []);
-
-      // 2. Fetch Requests Stats (Mocked or calculated based on RLS access to requests table)
-      // In a real app, you would sum this up on the server using an RPC function.
-      // For Phase 5 UI demonstration, we will pull the requests if they exist.
       if (keys && keys.length > 0) {
-        const keyIds = keys.map(k => k.id);
-        const { data: reqs } = await supabase
-          .from('requests')
-          .select('id, tokens_saved, cost_saved, created_at')
-          .in('api_key_id', keyIds);
-          
+        const { data: reqs } = await supabase.from('requests').select('id, tokens_saved, cost_saved, created_at').in('api_key_id', keys.map((k) => k.id));
         if (reqs) {
           const now = new Date();
-          const todayReqs = reqs.filter(r => new Date(r.created_at).getDate() === now.getDate());
-          
+          const today = reqs.filter((r) => new Date(r.created_at).toDateString() === now.toDateString());
           setStats({
-            requestsToday: todayReqs.length,
+            requestsToday: today.length,
             requestsMonth: reqs.length,
-            tokensSaved: reqs.reduce((sum, r) => sum + (r.tokens_saved || 0), 0),
-            costSaved: reqs.reduce((sum, r) => sum + (r.cost_saved || 0), 0)
+            tokensSaved: reqs.reduce((s, r) => s + (r.tokens_saved || 0), 0),
+            costSaved: reqs.reduce((s, r) => s + (r.cost_saved || 0), 0),
           });
         }
       }
-    } catch (err) {
-      console.error('Error fetching data', err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  const generateApiKey = async () => {
+  const generateKey = async () => {
     if (!supabase) return;
+    setCreating(true);
     try {
-      const newKey = `vs_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-      await supabase.from('api_keys').insert([
-        {
-          user_id: session.user.id,
-          key_value: newKey,
-          name: 'Production Key ' + (apiKeys.length + 1)
-        }
-      ]);
-      fetchDashboardData();
-    } catch (err) {
-      console.error(err);
-    }
+      const newKey = `vs_live_${Math.random().toString(36).slice(2, 12)}${Math.random().toString(36).slice(2, 12)}`;
+      await supabase.from('api_keys').insert([{ user_id: session.user.id, key_value: newKey, name: `Key ${apiKeys.length + 1}` }]);
+      await fetchData();
+    } catch (e) { console.error(e); } finally { setCreating(false); }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedKey(text);
-    setTimeout(() => setCopiedKey(null), 2000);
-  };
+  const copy = (text: string, key: string) => { navigator.clipboard?.writeText(text); setCopied(key); setTimeout(() => setCopied(''), 1500); };
 
-  if (loading) {
-    return <div className="loading-screen"><div className="loading-spinner"></div></div>;
-  }
+  const primaryKey = apiKeys.find((k) => k.is_active)?.key_value as string | undefined;
+  const mask = (k: string) => `${k.slice(0, 11)}${'•'.repeat(14)}`;
+  const curl = `curl -X POST https://api.visionstream.dev/observe \\
+  -H "Authorization: Bearer ${primaryKey || 'vs_live_YOUR_KEY'}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"url":"https://news.ycombinator.com"}'`;
+
+  if (loading) return <div className="loading-screen"><div className="loading-spinner" /></div>;
+
+  const hasKey = apiKeys.length > 0;
 
   return (
-    <div className="dashboard-container">
-      <header className="page-header">
-        <h1>Dashboard</h1>
-        <p>Welcome back, {session.user.email}</p>
-      </header>
+    <div className="db">
+      <div className="db-head">
+        <div className="db-head-title"><LogoMark size={22} /> <h1>Dashboard</h1></div>
+        <p className="db-head-sub">Signed in as {session?.user?.email}</p>
+      </div>
 
-      {/* Stats Grid */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon-wrapper blue">
-            <Activity size={20} />
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Requests Today</span>
-            <span className="stat-value">{stats.requestsToday}</span>
-          </div>
-        </div>
-        
-        <div className="stat-card">
-          <div className="stat-icon-wrapper purple">
-            <Zap size={20} />
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Requests This Month</span>
-            <span className="stat-value">{stats.requestsMonth}</span>
-          </div>
+      {/* Onboarding / first request */}
+      <div className="db-onboard">
+        <div className="db-onboard-title">
+          {hasKey ? 'Make your first request' : 'Get started in three steps'}
         </div>
 
-        <div className="stat-card">
-          <div className="stat-icon-wrapper green">
-            <Key size={20} />
+        <div className="db-steps">
+          <div className={`db-step ${hasKey ? 'done' : 'current'}`}>
+            <span className="db-step-n">{hasKey ? <Check size={14} /> : '1'}</span>
+            <div>
+              <div className="db-step-title">Create an API key</div>
+              {!hasKey && <button className="db-btn primary" onClick={generateKey} disabled={creating}>{creating ? 'Generating…' : <><Plus size={15} /> Generate key</>}</button>}
+              {hasKey && primaryKey && (
+                <div className="db-key-inline">
+                  <code>{revealed ? primaryKey : mask(primaryKey)}</code>
+                  <button className="db-icon-btn" onClick={() => setRevealed((v) => !v)} title={revealed ? 'Hide' : 'Reveal'}>{revealed ? <EyeOff size={14} /> : <Eye size={14} />}</button>
+                  <button className="db-icon-btn" onClick={() => copy(primaryKey, 'key')} title="Copy">{copied === 'key' ? <Check size={14} /> : <Copy size={14} />}</button>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="stat-content">
-            <span className="stat-label">Tokens Saved (AI Cleaning)</span>
-            <span className="stat-value">{stats.tokensSaved.toLocaleString()}</span>
-          </div>
-        </div>
 
-        <div className="stat-card">
-          <div className="stat-icon-wrapper yellow">
-            <DollarSign size={20} />
+          <div className={`db-step ${hasKey ? 'current' : ''}`}>
+            <span className="db-step-n">2</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="db-step-title">Call the API <span className="db-muted">— key already filled in below</span></div>
+              <div className="db-code">
+                <div className="db-code-bar"><span><Terminal size={13} /> shell</span><button onClick={() => copy(curl, 'curl')} disabled={!hasKey}>{copied === 'curl' ? <Check size={13} /> : <Copy size={13} />} {copied === 'curl' ? 'Copied' : 'Copy'}</button></div>
+                <pre>{curl}</pre>
+              </div>
+            </div>
           </div>
-          <div className="stat-content">
-            <span className="stat-label">Estimated Money Saved</span>
-            <span className="stat-value">${stats.costSaved.toFixed(2)}</span>
+
+          <div className="db-step">
+            <span className="db-step-n">3</span>
+            <div>
+              <div className="db-step-title">Get structured JSON back</div>
+              <div className="db-muted" style={{ fontSize: 13 }}>You'll receive a screenshot URL plus the page's links, forms, tables and elements. <a onClick={() => navigate('/docs')}>See the response shape →</a></div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* API Keys Section */}
-      <div className="api-keys-section">
-        <div className="section-header">
-          <div>
-            <h2>API Keys</h2>
-            <p>Your secret keys to authenticate with the VisionStream REST API.</p>
-          </div>
-          <button className="btn-primary icon-btn" onClick={generateApiKey}>
-            <Plus size={16} />
-            Generate New Key
-          </button>
-        </div>
+      {/* Usage */}
+      <div className="db-section-label">Usage</div>
+      <div className="db-stats">
+        <div className="db-stat"><div className="db-stat-icon blue"><Activity size={17} /></div><div><div className="db-stat-num">{stats.requestsToday}</div><div className="db-stat-label">Requests today</div></div></div>
+        <div className="db-stat"><div className="db-stat-icon indigo"><Zap size={17} /></div><div><div className="db-stat-num">{stats.requestsMonth}</div><div className="db-stat-label">Requests this month</div></div></div>
+        <div className="db-stat"><div className="db-stat-icon green"><Coins size={17} /></div><div><div className="db-stat-num">{stats.tokensSaved.toLocaleString()}</div><div className="db-stat-label">Vision tokens saved</div></div></div>
+        <div className="db-stat"><div className="db-stat-icon green"><Coins size={17} /></div><div><div className="db-stat-num">${stats.costSaved.toFixed(2)}</div><div className="db-stat-label">Estimated cost saved</div></div></div>
+      </div>
 
-        <div className="keys-list">
-          {apiKeys.length === 0 ? (
-            <div className="empty-state">No API keys generated yet.</div>
-          ) : (
-            <table className="keys-table">
-              <thead>
-                <tr>
-                  <th>NAME</th>
-                  <th>KEY</th>
-                  <th>CREATED</th>
-                  <th>STATUS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {apiKeys.map((k) => (
-                  <tr key={k.id}>
-                    <td>{k.name}</td>
-                    <td>
-                      <div className="key-display">
-                        <code>{k.key_value.substring(0, 12)}••••••••••••</code>
-                        <button 
-                          className="copy-btn" 
-                          onClick={() => copyToClipboard(k.key_value)}
-                          title="Copy to clipboard"
-                        >
-                          {copiedKey === k.key_value ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
-                        </button>
-                      </div>
-                    </td>
-                    <td>{new Date(k.created_at).toLocaleDateString()}</td>
-                    <td>
-                      <span className={`status-badge ${k.is_active ? 'active' : 'revoked'}`}>
-                        {k.is_active ? 'Active' : 'Revoked'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+      {/* Keys */}
+      <div className="db-section-row">
+        <div className="db-section-label" style={{ margin: 0 }}>API keys</div>
+        <button className="db-btn ghost" onClick={generateKey} disabled={creating}><Plus size={14} /> New key</button>
+      </div>
+      <div className="db-keys">
+        {!hasKey ? (
+          <div className="db-empty"><KeyRound size={20} /> No keys yet — generate one above to start.</div>
+        ) : (
+          apiKeys.map((k) => (
+            <div className="db-key-row" key={k.id}>
+              <div className="db-key-main">
+                <span className="db-key-name">{k.name}</span>
+                <code className="db-key-val">{mask(k.key_value)}</code>
+              </div>
+              <div className="db-key-meta">
+                <span className={`db-status ${k.is_active ? 'active' : 'revoked'}`}>{k.is_active ? 'Active' : 'Revoked'}</span>
+                <span className="db-muted">{new Date(k.created_at).toLocaleDateString()}</span>
+                <button className="db-icon-btn" onClick={() => copy(k.key_value, k.id)}>{copied === k.id ? <Check size={14} /> : <Copy size={14} />}</button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -5,11 +5,13 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Playground from './pages/Playground';
 import Landing from './pages/Landing';
+import Docs from './pages/Docs';
+import { LogoMark } from './components/Logo';
 import { LayoutDashboard, TerminalSquare, LogOut } from 'lucide-react';
 
-// Routes that never require authentication. The landing page and Observe
+// Routes that never require authentication. The landing page, docs, and Observe
 // playground are the public, no-signup surfaces — they must always render.
-const PUBLIC_PATHS = ['/', '/playground', '/login'];
+const PUBLIC_PATHS = ['/', '/playground', '/docs', '/login'];
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -63,16 +65,17 @@ function App() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // The landing page is full-bleed and has its own chrome — no app sidebar.
-  const isLanding = location.pathname === '/';
-  const showSidebar = !!session && !isLanding;
+  // Public marketing/tool surfaces are full-bleed with their own top nav —
+  // the app sidebar only appears on the authenticated dashboard.
+  const fullBleed = ['/', '/docs', '/playground'].includes(location.pathname);
+  const showSidebar = !!session && location.pathname === '/dashboard';
 
   return (
-    <div className={isLanding ? 'landing-shell' : 'app-layout'}>
+    <div className={fullBleed ? 'landing-shell' : 'app-layout'}>
       {showSidebar && (
         <aside className="app-sidebar">
           <div className="app-logo">
-            <div className="logo-icon"></div>
+            <LogoMark size={22} />
             VisionStream
           </div>
           <nav className="app-nav">
@@ -99,11 +102,12 @@ function App() {
         </aside>
       )}
 
-      <main className={isLanding ? 'landing-main' : 'app-content'}>
+      <main className={fullBleed ? 'landing-main' : 'app-content'}>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/playground" element={<Playground />} />
+          <Route path="/docs" element={<Docs />} />
           <Route path="/dashboard" element={<Dashboard session={session} />} />
           {/* Any unknown route falls back to the landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />

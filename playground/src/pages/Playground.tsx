@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LogoMark } from '../components/Logo';
 import {
   Search, Check, Copy, Download, ArrowRight, Loader2, Camera, Braces,
   Link2, Table2, Sparkles, Gauge, RefreshCw, MousePointerClick, AlertTriangle,
@@ -145,10 +146,10 @@ print(result.observation.counts)`;
   return (
     <div className="pg">
       <nav className="pg-nav">
-        <div className="pg-brand"><span className="pg-brand-mark" />VisionStream</div>
+        <div className="pg-brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}><LogoMark size={22} />VisionStream</div>
         <div className="pg-nav-links">
           <a className="pg-nav-link active">Observe</a>
-          <a className="pg-nav-link" onClick={() => navigate('/')}>Docs</a>
+          <a className="pg-nav-link" onClick={() => navigate('/docs')}>Docs</a>
           <a className="pg-nav-link" onClick={() => navigate('/')}>Pricing</a>
           <a className="pg-nav-link" href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
           <button className="pg-nav-cta" onClick={() => navigate('/login')}>Get API key</button>
@@ -158,8 +159,8 @@ print(result.observation.counts)`;
       <div className="pg-body">
         <header className="pg-hero">
           <div className="pg-hero-badge"><Sparkles size={13} /> Observe API · no signup required</div>
-          <h1 className="pg-hero-title">Observe any website</h1>
-          <p className="pg-hero-sub">One API call returns a clean screenshot <em>and</em> structured JSON — links, forms, tables, buttons, bounding boxes — with 30–60% fewer vision tokens.</p>
+          <h1 className="pg-hero-title">Point it at a URL.</h1>
+          <p className="pg-hero-sub">Watch a live page become a screenshot <em>and</em> structured JSON — links, forms, tables, buttons, every box labeled. Same call your agent would make.</p>
 
           <div className="pg-omni">
             <Search size={18} className="pg-omni-icon" />

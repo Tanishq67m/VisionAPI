@@ -9,7 +9,7 @@ import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './docs/swagger.js';
 
-const app = express();
+export const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
@@ -277,7 +277,10 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-app.listen(port, () => {
-  console.log(`🚀 VisionStream API running on http://localhost:${port}`);
-  console.log(`Try: curl -X POST http://localhost:${port}/capture -H "Authorization: Bearer vs_test_123456789" -H "Content-Type: application/json" -d '{"url":"https://example.com"}'`);
-});
+// Only auto-listen when run directly (not when imported by a test).
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    console.log(`🚀 VisionStream API running on http://localhost:${port}`);
+    console.log(`Try: curl -X POST http://localhost:${port}/capture -H "Authorization: Bearer vs_test_123456789" -H "Content-Type: application/json" -d '{"url":"https://example.com"}'`);
+  });
+}

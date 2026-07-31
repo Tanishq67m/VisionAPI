@@ -1,57 +1,31 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, MousePointerClick, Boxes, Zap, Gauge, ShieldCheck, ArrowRight, Github } from 'lucide-react';
+import { LogoMark } from '../components/Logo';
+import { Eye, Scissors, Plug, Ruler, GitFork, ArrowRight, Github } from 'lucide-react';
 
-const CODE = `import { VisionStream } from "visionstream";
+const CODE = `POST /observe
 
-const vision = new VisionStream(process.env.VISIONSTREAM_KEY);
-
-// Don't just see the page — understand it.
 const { observation } = await vision.observe({
-  url: "https://news.ycombinator.com",
+  url: "news.ycombinator.com",
 });
 
-observation.buttons;   // [{ text: "Login", bbox: {...} }, ...]
-observation.forms;     // structured forms + fields
-observation.tables;    // headers + row counts`;
+observation.counts;   // { links: 196, tables: 4 }
+observation.tables;   // [{ headers: [...], rowCount: 92 }]
+observation.buttons;  // [{ text, bbox: { x, y, w, h } }]`;
 
 const FEATURES = [
-  {
-    icon: Eye,
-    title: 'Observe API',
-    body: 'Return structured page understanding — headings, buttons, links, forms, tables and interactive elements with bounding boxes. Your agent understands the page instead of guessing from pixels.',
-  },
-  {
-    icon: Zap,
-    title: 'Vision-optimized Capture',
-    body: 'Clean, high-DPI screenshots with cookie banners and UI noise stripped out — so vision models spend tokens on content, not chrome. Typically 30–60% fewer tokens.',
-  },
-  {
-    icon: Boxes,
-    title: 'MCP + SDKs',
-    body: 'A first-class Model Context Protocol server and a JavaScript SDK. Drop VisionStream into Claude Desktop, Cursor, or any agent framework in minutes.',
-  },
-  {
-    icon: Gauge,
-    title: 'Built for agents',
-    body: 'Stateless, fast, and predictable. One call returns the screenshot and the structured data together, so your agent loop stays simple.',
-  },
-  {
-    icon: MousePointerClick,
-    title: 'Bounding boxes',
-    body: 'Every element comes with coordinates that line up with the capture — ready for click-targeting, overlays, and grounding.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Graceful by design',
-    body: 'If structure extraction fails on a hostile page, you still get the screenshot. No crashes, no dead ends.',
-  },
+  { icon: Eye, title: 'Structure, not guesswork', body: 'Headings, buttons, links, forms and tables — each returned with a bounding box. No OCR, no prompt-and-pray on a screenshot.' },
+  { icon: Scissors, title: 'Chrome gets cut before capture', body: 'Cookie banners, ads and nav are stripped before the screenshot, so your model isn’t billed to read furniture. Usually 30–60% fewer vision tokens.' },
+  { icon: Plug, title: 'MCP and a typed SDK', body: 'A real Model Context Protocol server plus a TypeScript SDK. Drop it into Claude Desktop, Cursor or your own loop in a couple of lines.' },
+  { icon: Ruler, title: 'Coordinates that line up', body: 'Every element ships with a box that matches the capture — ready for click-targeting, grounding and overlays.' },
+  { icon: GitFork, title: 'One call, both halves', body: 'Screenshot and structured JSON come back together. No second request, no stitching two tools into one prompt.' },
+  { icon: Eye, title: 'Fails without drama', body: 'If a hostile page breaks structure extraction, you still get the screenshot and a readable error — never a silent 500.' },
 ];
 
 const PLANS = [
-  { name: 'Free', price: '$0', tag: 'For trying it out', items: ['100 captures / month', 'Observe + Capture API', 'Community support'], cta: 'Start free' },
-  { name: 'Pro', price: '$29', tag: 'For builders', items: ['10,000 captures / month', 'MCP server + SDK', 'Dashboard + metrics', 'Email support'], cta: 'Go Pro', featured: true },
-  { name: 'Team', price: '$99', tag: 'For teams', items: ['Shared projects', 'Usage analytics', 'Webhooks', 'Team API keys'], cta: 'Contact us' },
+  { name: 'Free', price: '$0', tag: 'Kick the tires', items: ['100 captures / month', 'Observe + Capture', 'Community support'], cta: 'Start free' },
+  { name: 'Pro', price: '$29', tag: 'Once it’s in your loop', items: ['10,000 captures / month', 'MCP server + SDK', 'Dashboard + metrics', 'Email support'], cta: 'Go Pro', featured: true },
+  { name: 'Team', price: '$99', tag: 'When the team piles on', items: ['Shared projects', 'Usage analytics', 'Webhooks', 'Team API keys'], cta: 'Talk to us' },
 ];
 
 export default function Landing() {
@@ -60,88 +34,82 @@ export default function Landing() {
   return (
     <div className="lp">
       <nav className="lp-nav">
-        <div className="lp-logo">VisionStream</div>
+        <div className="lp-logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+          <LogoMark size={24} /> Vision<span style={{ color: 'var(--text-accent)' }}>Stream</span>
+        </div>
         <div className="lp-nav-links">
           <button className="lp-link" onClick={() => navigate('/playground')}>Playground</button>
+          <button className="lp-link" onClick={() => navigate('/docs')}>Docs</button>
           <button className="lp-link" onClick={() => navigate('/login')}>Sign in</button>
-          <button className="lp-btn lp-btn-primary" onClick={() => navigate('/playground')}>
-            Try the Playground
-          </button>
+          <button className="lp-btn lp-btn-primary" onClick={() => navigate('/login')}>Get an API key</button>
         </div>
       </nav>
 
-      <header className="lp-hero">
-        <div className="lp-badge">Browser intelligence infrastructure for AI agents</div>
-        <h1 className="lp-title">
-          Give your AI agents <span>eyes</span> — and the ability to understand any web page.
-        </h1>
-        <p className="lp-sub">
-          VisionStream turns any URL into a clean screenshot <em>and</em> a structured map of the page —
-          buttons, forms, tables, links — in a single API call. Stop making models infer everything from pixels.
-        </p>
-        <div className="lp-cta-row">
-          <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={() => navigate('/playground')}>
-            Try it free — no signup <ArrowRight size={18} />
-          </button>
-          <button className="lp-btn lp-btn-ghost lp-btn-lg" onClick={() => navigate('/login')}>
-            Get an API key
-          </button>
+      {/* Asymmetric hero — copy left, code right */}
+      <header className="lp-hero2">
+        <div className="lp-hero2-left">
+          <div className="lp-eyebrow">Browser intelligence API</div>
+          <h1 className="lp-h1">Your agent gets the page —<br />not just a picture of it.</h1>
+          <p className="lp-lead">Point VisionStream at any URL. It hands back a cleaned screenshot <em>and</em> the page's real structure — every link, form, table and button, boxed and labeled — from a single request. Your vision model stops paying to squint at cookie banners.</p>
+          <div className="lp-cta-row">
+            <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={() => navigate('/playground')}>Run it on a URL <ArrowRight size={17} /></button>
+            <button className="lp-btn lp-btn-ghost lp-btn-lg" onClick={() => navigate('/docs')}>Read the docs</button>
+          </div>
+          <div className="lp-trust">
+            <div className="lp-trust-row"><span className="lp-trust-label">Feeds</span> GPT-4o · Claude · Gemini · OpenAI Agents SDK · LangChain</div>
+            <div className="lp-trust-row"><span className="lp-trust-label">Runs on</span> Playwright · Chrome · MCP · TypeScript</div>
+          </div>
         </div>
-        <div className="lp-hero-note">Paste a URL, hit Observe, watch the page turn into JSON.</div>
-
-        <div className="lp-trust">
-          <div className="lp-trust-row"><span className="lp-trust-label">Works with</span> GPT-4o · Claude · Gemini · OpenAI Agents SDK · LangChain</div>
-          <div className="lp-trust-row"><span className="lp-trust-label">Built on</span> Playwright · Chrome · MCP · TypeScript</div>
+        <div className="lp-hero2-right">
+          <div className="lp-code-card">
+            <div className="lp-code-head">
+              <LogoMark size={15} />
+              <span className="lp-code-file">observe.ts</span>
+            </div>
+            <pre className="lp-code">{CODE}</pre>
+          </div>
         </div>
       </header>
 
       <section className="lp-compare">
-        <h2 className="lp-h2">Why not just Playwright + a vision model?</h2>
-        <p className="lp-section-sub">Because you'd be paying a vision model to re-read the browser chrome on every call.</p>
+        <div className="lp-section-head">
+          <h2 className="lp-h2">“Why not just Playwright and GPT-4o?”</h2>
+          <p className="lp-section-sub">Because that setup pays a vision model to re-read the browser chrome on every single call.</p>
+        </div>
         <div className="lp-compare-grid">
           <div className="lp-compare-col old">
-            <div className="lp-compare-tag">The usual way</div>
+            <div className="lp-compare-tag">Rolling your own</div>
             <ul className="lp-compare-list">
-              <li>Screenshot the whole page — banners, ads, nav and all</li>
-              <li>Send megapixels to GPT-4o and pay for every tile</li>
+              <li>Screenshot the whole page — banners, ads and all</li>
+              <li>Ship megapixels to GPT-4o, pay per tile</li>
               <li>Ask the model to <em>infer</em> buttons and forms from pixels</li>
-              <li>Get coordinates wrong, retry, burn more tokens</li>
-              <li>Write custom Playwright selectors per site</li>
+              <li>Get a coordinate wrong, retry, burn more tokens</li>
+              <li>Hand-write Playwright selectors per site, forever</li>
             </ul>
           </div>
           <div className="lp-compare-col new">
             <div className="lp-compare-tag accent">With VisionStream</div>
             <ul className="lp-compare-list">
-              <li>One call returns a cleaned, chrome-free screenshot</li>
-              <li>Plus structured JSON: links, forms, tables, buttons</li>
-              <li>Every element carries a bounding box — no inference</li>
-              <li>30–60% fewer vision tokens, every request</li>
-              <li>Works on any site, no per-site selectors</li>
+              <li>A cleaned, chrome-free screenshot comes back first</li>
+              <li>Alongside JSON: links, forms, tables, buttons</li>
+              <li>Every element already carries a box — nothing inferred</li>
+              <li>30–60% fewer vision tokens, request after request</li>
+              <li>Works on any site, no per-site selectors to babysit</li>
             </ul>
           </div>
         </div>
       </section>
 
-      <section className="lp-code-section">
-        <div className="lp-code-card">
-          <div className="lp-code-head">
-            <span className="lp-dot red" /><span className="lp-dot amber" /><span className="lp-dot green" />
-            <span className="lp-code-file">observe.ts</span>
-          </div>
-          <pre className="lp-code">{CODE}</pre>
-        </div>
-      </section>
-
       <section className="lp-features">
-        <h2 className="lp-h2">One layer above the browser</h2>
-        <p className="lp-section-sub">
-          Not another headless browser. The intelligence layer on top of it.
-        </p>
+        <div className="lp-section-head">
+          <h2 className="lp-h2">What comes back</h2>
+          <p className="lp-section-sub">Two things in one response: the picture, and the structure behind it.</p>
+        </div>
         <div className="lp-grid">
-          {FEATURES.map((f) => {
+          {FEATURES.map((f, i) => {
             const Icon = f.icon;
             return (
-              <div className="lp-feature" key={f.title}>
+              <div className="lp-feature" key={i}>
                 <div className="lp-feature-icon"><Icon size={20} /></div>
                 <div className="lp-feature-title">{f.title}</div>
                 <div className="lp-feature-body">{f.body}</div>
@@ -152,46 +120,39 @@ export default function Landing() {
       </section>
 
       <section className="lp-pricing">
-        <h2 className="lp-h2">Simple, honest pricing</h2>
-        <p className="lp-section-sub">Start free. Upgrade when you ship.</p>
+        <div className="lp-section-head">
+          <h2 className="lp-h2">Start free. Pay when it’s load-bearing.</h2>
+          <p className="lp-section-sub">No card to try it. No surprise metering.</p>
+        </div>
         <div className="lp-plans">
           {PLANS.map((p) => (
             <div className={`lp-plan ${p.featured ? 'featured' : ''}`} key={p.name}>
-              {p.featured && <div className="lp-plan-flag">Most popular</div>}
+              {p.featured && <div className="lp-plan-flag">Most picked</div>}
               <div className="lp-plan-name">{p.name}</div>
               <div className="lp-plan-price">{p.price}<span>/mo</span></div>
               <div className="lp-plan-tag">{p.tag}</div>
-              <ul className="lp-plan-items">
-                {p.items.map((it) => <li key={it}>{it}</li>)}
-              </ul>
-              <button
-                className={`lp-btn ${p.featured ? 'lp-btn-primary' : 'lp-btn-ghost'} lp-plan-cta`}
-                onClick={() => navigate(p.name === 'Free' ? '/playground' : '/login')}
-              >
-                {p.cta}
-              </button>
+              <ul className="lp-plan-items">{p.items.map((it) => <li key={it}>{it}</li>)}</ul>
+              <button className={`lp-btn ${p.featured ? 'lp-btn-primary' : 'lp-btn-ghost'} lp-plan-cta`} onClick={() => navigate(p.name === 'Free' ? '/playground' : '/login')}>{p.cta}</button>
             </div>
           ))}
         </div>
       </section>
 
       <section className="lp-final">
-        <h2 className="lp-h2">See it work in ten seconds</h2>
-        <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={() => navigate('/playground')}>
-          Open the Playground <ArrowRight size={18} />
-        </button>
+        <h2 className="lp-h2">Point it at something ugly and watch.</h2>
+        <p className="lp-section-sub">A news site, a dashboard, a checkout — see the screenshot, the JSON and the token savings for yourself.</p>
+        <button className="lp-btn lp-btn-primary lp-btn-lg" onClick={() => navigate('/playground')}>Open the playground <ArrowRight size={17} /></button>
       </section>
 
       <footer className="lp-footer">
-        <div className="lp-logo">VisionStream</div>
+        <div className="lp-logo"><LogoMark size={22} /> VisionStream</div>
         <div className="lp-footer-links">
           <button className="lp-link" onClick={() => navigate('/playground')}>Playground</button>
+          <button className="lp-link" onClick={() => navigate('/docs')}>Docs</button>
           <button className="lp-link" onClick={() => navigate('/login')}>Sign in</button>
-          <a className="lp-link" href="https://github.com" target="_blank" rel="noreferrer">
-            <Github size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />GitHub
-          </a>
+          <a className="lp-link" href="https://github.com" target="_blank" rel="noreferrer"><Github size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />GitHub</a>
         </div>
-        <div className="lp-copy">© {new Date().getFullYear()} VisionStream — Browser intelligence for AI agents.</div>
+        <div className="lp-copy">© {new Date().getFullYear()} VisionStream — browser intelligence for AI agents.</div>
       </footer>
     </div>
   );

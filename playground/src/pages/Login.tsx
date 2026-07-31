@@ -72,7 +72,7 @@ export default function Login() {
                 className="text-input with-icon" 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="developer@example.com"
+                placeholder="you@company.com"
                 required
               />
             </div>
@@ -96,6 +96,7 @@ export default function Login() {
           <button type="submit" className="btn-primary login-btn" disabled={loading}>
             {loading ? 'Processing...' : isSignUp ? 'Sign Up' : 'Sign In'}
           </button>
+          <p className="login-hint">Use a real email address — reserved domains like <code>example.com</code> are rejected by the auth provider.</p>
         </form>
 
         <div className="login-footer">
