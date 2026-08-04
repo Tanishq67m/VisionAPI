@@ -38,7 +38,7 @@ export class VisionStream {
   private apiKey: string;
   private baseUrl: string;
 
-  constructor(apiKey: string, baseUrl: string = 'http://localhost:3000') {
+  constructor(apiKey: string, baseUrl: string = 'http://localhost:8787') {
     if (!apiKey) {
       throw new Error('VisionStream API key is required');
     }

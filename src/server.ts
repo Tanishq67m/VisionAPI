@@ -10,7 +10,8 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './docs/swagger.js';
 
 export const app = express();
-const port = process.env.PORT || 3000;
+// Default to 8787 so the API can run alongside the Vite UI (which uses 3000).
+const port = process.env.PORT || 8787;
 
 app.use(cors());
 app.use(express.json());
@@ -281,6 +282,6 @@ process.on('SIGTERM', async () => {
 if (process.env.NODE_ENV !== 'test') {
   app.listen(port, () => {
     console.log(`🚀 VisionStream API running on http://localhost:${port}`);
-    console.log(`Try: curl -X POST http://localhost:${port}/capture -H "Authorization: Bearer vs_test_123456789" -H "Content-Type: application/json" -d '{"url":"https://example.com"}'`);
+    console.log(`Try: curl -X POST http://localhost:${port}/observe -H "Authorization: Bearer vs_test_123456789" -H "Content-Type: application/json" -d '{"url":"https://example.com"}'`);
   });
 }

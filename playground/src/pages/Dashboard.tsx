@@ -12,13 +12,20 @@ export default function Dashboard({ session }: { session: any }) {
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState('');
   const [revealed, setRevealed] = useState(false);
+  const [err, setErr] = useState('');
 
   useEffect(() => { if (session?.user) fetchData(); else setLoading(false); }, [session]);
+
+  const rlsHint = (msg: string) =>
+    /row-level security|rls|policy|permission|violates/i.test(msg)
+      ? 'The database is blocking this. Run supabase_policies.sql in your Supabase SQL editor to allow signed-in users to manage their own keys.'
+      : msg;
 
   const fetchData = async () => {
     if (!supabase) { setLoading(false); return; }
     try {
-      const { data: keys } = await supabase.from('api_keys').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
+      const { data: keys, error: keysErr } = await supabase.from('api_keys').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
+      if (keysErr) { setErr(rlsHint(keysErr.message)); setLoading(false); return; }
       setApiKeys(keys || []);
       if (keys && keys.length > 0) {
         const { data: reqs } = await supabase.from('requests').select('id, tokens_saved, cost_saved, created_at').in('api_key_id', keys.map((k) => k.id));
@@ -33,17 +40,21 @@ export default function Dashboard({ session }: { session: any }) {
           });
         }
       }
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+    } catch (e: any) { setErr(rlsHint(e?.message || 'Failed to load dashboard')); } finally { setLoading(false); }
   };
 
   const generateKey = async () => {
     if (!supabase) return;
     setCreating(true);
+    setErr('');
     try {
       const newKey = `vs_live_${Math.random().toString(36).slice(2, 12)}${Math.random().toString(36).slice(2, 12)}`;
-      await supabase.from('api_keys').insert([{ user_id: session.user.id, key_value: newKey, name: `Key ${apiKeys.length + 1}` }]);
+      const { error } = await supabase.from('api_keys').insert([{ user_id: session.user.id, key_value: newKey, name: `Key ${apiKeys.length + 1}` }]);
+      if (error) { setErr(rlsHint(error.message)); return; }
       await fetchData();
-    } catch (e) { console.error(e); } finally { setCreating(false); }
+    } catch (e: any) {
+      setErr(rlsHint(e?.message || 'Could not create key'));
+    } finally { setCreating(false); }
   };
 
   const copy = (text: string, key: string) => { navigator.clipboard?.writeText(text); setCopied(key); setTimeout(() => setCopied(''), 1500); };
@@ -65,6 +76,8 @@ export default function Dashboard({ session }: { session: any }) {
         <div className="db-head-title"><LogoMark size={22} /> <h1>Dashboard</h1></div>
         <p className="db-head-sub">Signed in as {session?.user?.email}</p>
       </div>
+
+      {err && <div className="db-error">{err}</div>}
 
       {/* Onboarding / first request */}
       <div className="db-onboard">
