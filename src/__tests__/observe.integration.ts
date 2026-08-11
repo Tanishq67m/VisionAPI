@@ -60,7 +60,7 @@ afterAll(async () => {
 });
 
 test('observe returns the exact structure of the fixture (regression: no __name error)', async () => {
-  const res = await captureForAI({ url: base, observe: true });
+  const res = await captureForAI({ url: base, observe: true, allowPrivateHosts: true });
   expect(res.observation).toBeDefined();
   const o = res.observation!;
 
@@ -108,8 +108,8 @@ test('observe returns the exact structure of the fixture (regression: no __name 
 }, 60_000);
 
 test('capture returns a valid jpeg for both raw and clean passes', async () => {
-  const raw = await captureForAI({ url: base, skipClean: true });
-  const clean = await captureForAI({ url: base, observe: false });
+  const raw = await captureForAI({ url: base, skipClean: true, allowPrivateHosts: true });
+  const clean = await captureForAI({ url: base, observe: false, allowPrivateHosts: true });
   expect(raw.buffer.length).toBeGreaterThan(1000);
   expect(clean.buffer.length).toBeGreaterThan(1000);
   expect(clean.width).toBeGreaterThan(0);
@@ -120,7 +120,7 @@ test('capture returns a valid jpeg for both raw and clean passes', async () => {
 }, 60_000);
 
 test('extractElements returns interactive elements with bounding boxes', async () => {
-  const res = await captureForAI({ url: base, extractElements: true });
+  const res = await captureForAI({ url: base, extractElements: true, allowPrivateHosts: true });
   expect(res.elements).toBeDefined();
   expect(res.elements!.length).toBeGreaterThan(0);
   expect(res.elements![0].bbox).toBeDefined();

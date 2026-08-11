@@ -1,11 +1,24 @@
 import type { Request, Response, NextFunction } from 'express';
-import { validateApiKey } from '../lib/supabase.js';
 
-// Extend Express Request interface to hold our API key ID
+// Load the Supabase validator lazily. This keeps supabase.ts (which uses
+// import.meta) out of the module graph for callers that never authenticate a
+// token — e.g. unit tests exercising the header-validation branches — so those
+// tests don't need to compile ESM-only syntax under ts-jest.
+type ValidateFn = (key: string) => Promise<{ id: string; plan: string } | null>;
+let _validateApiKey: ValidateFn | null = null;
+async function getValidateApiKey(): Promise<ValidateFn> {
+  if (!_validateApiKey) {
+    _validateApiKey = (await import('../lib/supabase.js')).validateApiKey as ValidateFn;
+  }
+  return _validateApiKey;
+}
+
+// Extend Express Request interface to hold our API key context
 declare global {
   namespace Express {
     interface Request {
       apiKeyId?: string;
+      apiKeyPlan?: string;
     }
   }
 }
@@ -24,14 +37,16 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    const apiKeyId = await validateApiKey(token);
-    
-    if (!apiKeyId) {
+    const validateApiKey = await getValidateApiKey();
+    const key = await validateApiKey(token);
+
+    if (!key) {
       return res.status(401).json({ error: 'Invalid or inactive API key' });
     }
 
-    // Attach the internal ID to the request for logging
-    req.apiKeyId = apiKeyId;
+    // Attach the key context for logging + quota enforcement
+    req.apiKeyId = key.id;
+    req.apiKeyPlan = key.plan;
     next();
   } catch (error) {
     console.error('[Auth Middleware] Error validating token:', error);

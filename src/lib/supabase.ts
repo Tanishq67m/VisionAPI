@@ -16,23 +16,47 @@ export const supabase = (supabaseUrl && supabaseServiceKey)
   ? createClient(supabaseUrl, supabaseServiceKey)
   : null as any;
 
-// Helper function to check if a key is valid
+import crypto from 'crypto';
+
+/** SHA-256 → lowercase hex. Must match the browser's sha256Hex used at key creation. */
+export function hashApiKey(raw: string): string {
+  return crypto.createHash('sha256').update(raw).digest('hex');
+}
+
+// Helper function to check if a key is valid. Keys are stored as a SHA-256 hash;
+// we hash the incoming token and look it up by hash (never by plaintext).
 export async function validateApiKey(key: string) {
   if (!supabase) {
     console.error('[vision-mcp] Missing Supabase URL or Service Key. Cannot validate API key.');
     return null;
   }
 
+  const keyHash = hashApiKey(key);
   const { data, error } = await supabase
     .from('api_keys')
-    .select('id, is_active')
-    .eq('key_value', key)
+    .select('id, is_active, plan')
+    .eq('key_hash', keyHash)
     .single();
 
   if (error || !data || !data.is_active) {
     return null; // Key is either missing or blocked
   }
-  return data.id; // Return the internal ID for logging later
+  return { id: data.id as string, plan: (data.plan as string) || 'free' };
+}
+
+// Count how many requests this key has made in the current billing period.
+export async function countKeyUsageThisMonth(apiKeyId: string, sinceIso: string): Promise<number> {
+  if (!supabase) return 0;
+  const { count, error } = await supabase
+    .from('requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('api_key_id', apiKeyId)
+    .gte('created_at', sinceIso);
+  if (error) {
+    console.error('[VisionStream] Failed to count usage:', error.message);
+    return 0;
+  }
+  return count ?? 0;
 }
 
 // Log metering data for billing and dashboard
@@ -62,17 +86,22 @@ export async function logRequest(data: {
   }
 }
 
-// Upload image buffer to Supabase Storage and return public URL
+// How long a capture's signed URL stays valid (seconds). Default 1 hour.
+const CAPTURE_URL_TTL_SECONDS = Number(process.env.CAPTURE_URL_TTL_SECONDS || 3600);
+
+// Upload an image buffer to the (PRIVATE) `captures` bucket and return a
+// short-lived signed URL. Captures can contain sensitive content (a user's own
+// logged-in pages), so we never expose them via a public, permanent URL.
 export async function uploadToStorage(buffer: Buffer, filename: string): Promise<string | null> {
   if (!supabase) return null;
 
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .storage
       .from('captures')
       .upload(filename, buffer, {
         contentType: 'image/jpeg',
-        upsert: true
+        upsert: true,
       });
 
     if (error) {
@@ -80,12 +109,17 @@ export async function uploadToStorage(buffer: Buffer, filename: string): Promise
       return null;
     }
 
-    const { data: publicUrlData } = supabase
+    const { data: signed, error: signErr } = await supabase
       .storage
       .from('captures')
-      .getPublicUrl(filename);
+      .createSignedUrl(filename, CAPTURE_URL_TTL_SECONDS);
 
-    return publicUrlData.publicUrl;
+    if (signErr || !signed) {
+      console.error('[VisionStream] Failed to sign capture URL:', signErr?.message);
+      return null;
+    }
+
+    return signed.signedUrl;
   } catch (err) {
     console.error('[VisionStream] Failed to upload to storage:', err);
     return null;

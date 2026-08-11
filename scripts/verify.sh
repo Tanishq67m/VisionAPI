@@ -23,7 +23,7 @@ step() {
 
 tc_core() { npx tsc --noEmit; }
 tc_pg()   { ( cd playground && npx tsc -b ); }
-jest_one(){ npx jest "$1" --runInBand; }
+jest_one(){ npx jest "$1" --runInBand --forceExit; }
 
 api_http_layer() {
   PORT=4599 NODE_ENV= npx tsx src/server.ts >/tmp/vs_api.log 2>&1 &
@@ -49,6 +49,8 @@ echo ""
 step "Typecheck — core (tsc --noEmit)"                 tc_core
 step "Typecheck — playground (tsc -b)"                 tc_pg
 step "Unit — URL validation + auth middleware"         jest_one validation.unit.test.ts
+step "Unit — SSRF guard (private-IP blocking)"         jest_one ssrf.unit.test.ts
+step "Unit — plan quota math"                          jest_one plans.unit.test.ts
 step "Unit — cleanPage heuristics (jsdom)"             jest_one cleanPage.test.ts
 step "Integration — Observe engine (local fixture)"    jest_one observe.integration.ts
 step "Integration — token reduction (live sites)"      jest_one capture.integration.ts

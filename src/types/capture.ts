@@ -55,6 +55,13 @@ export interface CaptureOptions {
    * flat list of interactive elements). This is the VisionStream Observe API.
    */
   observe?: boolean;
+
+  /**
+   * Skip SSRF protection and allow private/loopback hosts. This is ONLY for
+   * trusted internal use (e.g. deterministic tests against a localhost
+   * fixture). Never set this for user-supplied URLs. Default: false.
+   */
+  allowPrivateHosts?: boolean;
 }
 
 // ─── Observe engine types ─────────────────────────────────────────────────────
@@ -226,4 +233,5 @@ export type CaptureErrorCode =
   | 'TIMEOUT'
   | 'SELECTOR_NOT_FOUND'
   | 'BROWSER_CRASH'
-  | 'INVALID_URL';
+  | 'INVALID_URL'
+  | 'BLOCKED_URL';

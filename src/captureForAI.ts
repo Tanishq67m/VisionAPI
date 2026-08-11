@@ -3,6 +3,7 @@ import { cleanPage } from './utils/cleanPage.js';
 import { smartWait } from './utils/smartWait.js';
 import { extractInteractiveElements } from './utils/domExtractor.js';
 import { observePage } from './utils/observe.js';
+import { assertUrlAllowed } from './utils/ssrfGuard.js';
 import { CaptureError } from './types/capture.js';
 import type {
   CaptureOptions,
@@ -63,20 +64,19 @@ async function getBrowser(): Promise<Browser> {
 export async function captureForAI(options: CaptureOptions): Promise<CaptureResult> {
   const opts = { ...DEFAULTS, ...options };
 
-  // Validate URL early — fail fast before spinning up a browser context
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(opts.url);
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      throw new Error('Only http and https URLs are supported');
+  // Validate + SSRF-guard the URL early — fail fast before spinning up a browser.
+  if (opts.allowPrivateHosts) {
+    // Trusted internal use only (e.g. tests against a localhost fixture):
+    // still validate the shape, but skip the private-address check.
+    try {
+      const u = new URL(opts.url);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('bad protocol');
+    } catch (err) {
+      throw new CaptureError(`Invalid URL: "${opts.url}"`, 'INVALID_URL', opts.url, err);
     }
-  } catch (err) {
-    throw new CaptureError(
-      `Invalid URL: "${opts.url}"`,
-      'INVALID_URL',
-      opts.url,
-      err
-    );
+  } else {
+    // Public path: reject private/loopback/link-local/metadata targets.
+    await assertUrlAllowed(opts.url);
   }
 
   const startTime = Date.now();
@@ -164,6 +164,16 @@ export async function captureForAI(options: CaptureOptions): Promise<CaptureResu
         'NAVIGATION_FAILED',
         opts.url
       );
+    }
+
+    // ── Redirect SSRF re-check ────────────────────────────────────────────────
+    // A page can 3xx-redirect to an internal address after the initial check.
+    // Re-validate the final URL before we do any more work.
+    if (!opts.allowPrivateHosts) {
+      const finalUrl = page.url();
+      if (finalUrl && finalUrl !== opts.url) {
+        await assertUrlAllowed(finalUrl);
+      }
     }
 
     // ── Smart wait ───────────────────────────────────────────────────────────

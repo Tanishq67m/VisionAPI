@@ -9,6 +9,7 @@ export { captureForAI, closeBrowser } from './captureForAI.js';
 export { cleanPage } from './utils/cleanPage.js';
 export { smartWait } from './utils/smartWait.js';
 export { observePage } from './utils/observe.js';
+export { assertUrlAllowed, isPrivateIp } from './utils/ssrfGuard.js';
 export type {
   CaptureOptions,
   CaptureResult,

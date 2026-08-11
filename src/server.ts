@@ -3,6 +3,7 @@ import cors from 'cors';
 import { captureForAI, closeBrowser } from './index.js';
 import { CaptureError } from './types/capture.js';
 import { requireAuth } from './middleware/auth.js';
+import { enforceQuota } from './middleware/quota.js';
 import { logRequest, uploadToStorage } from './lib/supabase.js';
 import PQueue from 'p-queue';
 import rateLimit from 'express-rate-limit';
@@ -77,7 +78,7 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *       401:
  *         description: Unauthorized (invalid API key)
  */
-app.post('/capture', requireAuth, async (req, res) => {
+app.post('/capture', requireAuth, enforceQuota, async (req, res) => {
   const { url, fullPage, skipClean, waitForSelector, viewportWidth, timeoutMs, extractElements } = req.body;
   const apiKeyId = req.apiKeyId || null;
 
@@ -196,7 +197,7 @@ app.post('/capture', requireAuth, async (req, res) => {
  *       401:
  *         description: Unauthorized (invalid API key)
  */
-app.post('/observe', requireAuth, async (req, res) => {
+app.post('/observe', requireAuth, enforceQuota, async (req, res) => {
   const { url, includeScreenshot, waitForSelector, viewportWidth, timeoutMs, fullPage } = req.body;
   const apiKeyId = req.apiKeyId || null;
 
@@ -282,6 +283,6 @@ process.on('SIGTERM', async () => {
 if (process.env.NODE_ENV !== 'test') {
   app.listen(port, () => {
     console.log(`🚀 VisionStream API running on http://localhost:${port}`);
-    console.log(`Try: curl -X POST http://localhost:${port}/observe -H "Authorization: Bearer vs_test_123456789" -H "Content-Type: application/json" -d '{"url":"https://example.com"}'`);
+    console.log(`Generate a key in the dashboard, then: curl -X POST http://localhost:${port}/observe -H "Authorization: Bearer <YOUR_KEY>" -H "Content-Type: application/json" -d '{"url":"https://example.com"}'`);
   });
 }
