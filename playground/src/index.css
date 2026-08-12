@@ -1013,6 +1013,22 @@ input:checked + .slider:before {
 .db-status.active { background: var(--success-bg); color: var(--success-color); }
 .db-status.revoked { background: rgba(248,113,113,0.12); color: var(--c-red); }
 
+.db-plan { border: 1px solid var(--border-color); border-radius: 12px; padding: 18px; background: var(--bg-panel); margin-bottom: 40px; }
+.db-plan-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.db-plan-badge { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 4px 10px; border-radius: 6px; background: var(--bg-input); color: var(--text-secondary); }
+.db-plan-badge.free { background: var(--bg-input); color: var(--text-secondary); }
+.db-plan-badge.pro { background: var(--accent-soft); color: var(--text-accent); }
+.db-plan-badge.team { background: rgba(52,211,153,0.14); color: var(--c-green); }
+.db-plan-badge.sm { font-size: 10px; padding: 2px 7px; }
+.db-plan-usage { font-size: 14px; color: var(--text-primary); }
+.db-plan-upgrade { font-size: 13px; color: var(--text-accent); margin-left: auto; cursor: pointer; }
+.db-quota-track { height: 8px; background: var(--bg-input); border-radius: 999px; overflow: hidden; }
+.db-quota-bar { height: 100%; border-radius: 999px; transition: width 0.3s ease; }
+.db-plan-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+
+.db-revoke { background: none; border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+.db-revoke:hover { color: var(--c-red); border-color: rgba(248,113,113,0.4); }
+
 .db-error { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.28); color: #fecaca; border-radius: 12px; padding: 14px 18px; font-size: 13.5px; line-height: 1.5; margin-bottom: 24px; }
 
 .db-newkey { background: linear-gradient(180deg, rgba(52,211,153,0.1), transparent 70%), var(--bg-panel); border: 1px solid rgba(52,211,153,0.35); border-radius: 14px; padding: 18px 20px; margin-bottom: 24px; }

@@ -13,7 +13,7 @@
     "mcp:build": "tsc && node dist/mcp-server.js",
     "typecheck": "tsc --noEmit",
     "inspector": "npx @modelcontextprotocol/inspector tsx src/mcp-server.ts",
-    "test:unit": "jest cleanPage.test.ts validation.unit.test.ts ssrf.unit.test.ts plans.unit.test.ts",
+    "test:unit": "jest cleanPage.test.ts validation.unit.test.ts ssrf.unit.test.ts plans.unit.test.ts billing.unit.test.ts",
     "test:validation": "jest validation.unit.test.ts",
     "test:observe": "jest observe.integration.ts --runInBand --forceExit",
     "test:integration": "jest capture.integration.ts --runInBand --timeout=120000 --forceExit",

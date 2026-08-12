@@ -51,6 +51,7 @@ step "Typecheck — playground (tsc -b)"                 tc_pg
 step "Unit — URL validation + auth middleware"         jest_one validation.unit.test.ts
 step "Unit — SSRF guard (private-IP blocking)"         jest_one ssrf.unit.test.ts
 step "Unit — plan quota math"                          jest_one plans.unit.test.ts
+step "Unit — billing (pricing + provider select)"      jest_one billing.unit.test.ts
 step "Unit — cleanPage heuristics (jsdom)"             jest_one cleanPage.test.ts
 step "Integration — Observe engine (local fixture)"    jest_one observe.integration.ts
 step "Integration — token reduction (live sites)"      jest_one capture.integration.ts

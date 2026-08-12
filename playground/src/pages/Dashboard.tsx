@@ -10,6 +10,9 @@ async function sha256Hex(input: string): Promise<string> {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Mirrors src/lib/plans.ts on the server.
+const PLAN_LIMITS: Record<string, number> = { free: 100, pro: 10_000, team: 50_000 };
+
 export default function Dashboard({ session }: { session: any }) {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ requestsToday: 0, requestsMonth: 0, tokensSaved: 0, costSaved: 0 });
@@ -43,7 +46,7 @@ export default function Dashboard({ session }: { session: any }) {
     try {
       const { data: keys, error: keysErr } = await supabase
         .from('api_keys')
-        .select('id, name, key_prefix, is_active, created_at')
+        .select('id, name, key_prefix, is_active, plan, created_at')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
       if (keysErr) { setErr(rlsHint(keysErr.message)); setLoading(false); return; }
@@ -72,7 +75,8 @@ export default function Dashboard({ session }: { session: any }) {
       const raw = `vs_live_${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
       const key_hash = await sha256Hex(raw);
       const key_prefix = raw.slice(0, 12);
-      const { error } = await supabase.from('api_keys').insert([{ user_id: session.user.id, key_hash, key_prefix, name: `Key ${apiKeys.length + 1}` }]);
+      const currentPlan = apiKeys.find((k) => k.is_active)?.plan || 'free';
+      const { error } = await supabase.from('api_keys').insert([{ user_id: session.user.id, key_hash, key_prefix, name: `Key ${apiKeys.length + 1}`, plan: currentPlan }]);
       if (error) { setErr(rlsHint(error.message)); return; }
       setJustCreated(raw); // show once — we never store the raw key
       await fetchData();
@@ -81,9 +85,49 @@ export default function Dashboard({ session }: { session: any }) {
     } finally { setCreating(false); }
   };
 
+  const [upgrading, setUpgrading] = useState('');
+  const apiBase = (typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) ? 'http://localhost:8787' : '';
+
+  const upgrade = async (target: 'pro' | 'team') => {
+    if (!supabase) return;
+    setUpgrading(target);
+    setErr('');
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      const res = await fetch(`${apiBase}/billing/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ plan: target }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Checkout failed');
+      if (body.demo) {
+        await fetchData(); // plan applied immediately (demo)
+      } else if (body.url) {
+        window.location.href = body.url; // real provider → hosted checkout
+      }
+    } catch (e: any) {
+      setErr(e?.message || 'Upgrade failed. Is the API server running on :8787?');
+    } finally {
+      setUpgrading('');
+    }
+  };
+
+  const revokeKey = async (id: string) => {
+    if (!supabase) return;
+    setErr('');
+    const { error } = await supabase.from('api_keys').update({ is_active: false }).eq('id', id);
+    if (error) { setErr(rlsHint(error.message)); return; }
+    await fetchData();
+  };
+
   const copy = (text: string, key: string) => { navigator.clipboard?.writeText(text); setCopied(key); setTimeout(() => setCopied(''), 1500); };
 
   const hasKey = apiKeys.length > 0;
+  const plan = (apiKeys.find((k) => k.is_active)?.plan || 'free') as string;
+  const planLimit = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
+  const usedPct = Math.min(100, Math.round((stats.requestsMonth / planLimit) * 100));
   const mask = (prefix?: string) => `${prefix || 'vs_live_'}${'•'.repeat(16)}`;
   const curlKey = justCreated || 'vs_live_YOUR_KEY';
   const curl = `curl -X POST https://api.visionstream.dev/observe \\
@@ -155,6 +199,23 @@ export default function Dashboard({ session }: { session: any }) {
         </div>
       </div>
 
+      {/* Plan + quota */}
+      <div className="db-section-label">Plan &amp; quota</div>
+      <div className="db-plan">
+        <div className="db-plan-row">
+          <span className={`db-plan-badge ${plan}`}>{plan.toUpperCase()}</span>
+          <span className="db-plan-usage">{stats.requestsMonth.toLocaleString()} / {planLimit.toLocaleString()} captures this month</span>
+        </div>
+        <div className="db-quota-track"><div className="db-quota-bar" style={{ width: `${usedPct}%`, background: usedPct >= 100 ? 'var(--c-red)' : usedPct >= 80 ? 'var(--c-amber)' : 'var(--accent-color)' }} /></div>
+        {hasKey && plan !== 'team' && (
+          <div className="db-plan-actions">
+            {plan === 'free' && <button className="db-btn primary" onClick={() => upgrade('pro')} disabled={!!upgrading}>{upgrading === 'pro' ? 'Upgrading…' : 'Upgrade to Pro — $29/mo'}</button>}
+            <button className="db-btn ghost" onClick={() => upgrade('team')} disabled={!!upgrading}>{upgrading === 'team' ? 'Upgrading…' : 'Upgrade to Team — $99/mo'}</button>
+            <span className="db-muted" style={{ fontSize: 12 }}>Demo billing — no real charge.</span>
+          </div>
+        )}
+      </div>
+
       {/* Usage */}
       <div className="db-section-label">Usage</div>
       <div className="db-stats">
@@ -178,10 +239,12 @@ export default function Dashboard({ session }: { session: any }) {
               <div className="db-key-main">
                 <span className="db-key-name">{k.name}</span>
                 <code className="db-key-val">{mask(k.key_prefix)}</code>
+                <span className={`db-plan-badge ${k.plan || 'free'} sm`}>{(k.plan || 'free').toUpperCase()}</span>
               </div>
               <div className="db-key-meta">
                 <span className={`db-status ${k.is_active ? 'active' : 'revoked'}`}>{k.is_active ? 'Active' : 'Revoked'}</span>
                 <span className="db-muted">{new Date(k.created_at).toLocaleDateString()}</span>
+                {k.is_active && <button className="db-revoke" onClick={() => revokeKey(k.id)}>Revoke</button>}
               </div>
             </div>
           ))

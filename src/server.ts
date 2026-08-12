@@ -4,7 +4,9 @@ import { captureForAI, closeBrowser } from './index.js';
 import { CaptureError } from './types/capture.js';
 import { requireAuth } from './middleware/auth.js';
 import { enforceQuota } from './middleware/quota.js';
-import { logRequest, uploadToStorage } from './lib/supabase.js';
+import { requireUser } from './middleware/requireUser.js';
+import { logRequest, uploadToStorage, applyPlanForUser } from './lib/supabase.js';
+import { getBillingProvider, PLAN_PRICING, isPaidPlan } from './billing/index.js';
 import PQueue from 'p-queue';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
@@ -15,19 +17,38 @@ export const app = express();
 const port = process.env.PORT || 8787;
 
 app.use(cors());
-app.use(express.json());
-
-// Set up rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  message: { error: 'Too many requests, please try again later.' }
+// Parse JSON for everything except the billing webhook, which needs the raw
+// request body for signature verification.
+app.use((req, res, next) => {
+  if (req.originalUrl === '/billing/webhook') return next();
+  return express.json()(req, res, next);
 });
 
-// Apply rate limiting to all requests
-app.use(limiter);
+// Coarse per-IP guard against abuse across the whole service.
+const ipLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests from this IP, please try again later.' },
+});
+app.use(ipLimiter);
+
+// Per-KEY burst limiter for the capture endpoints — keeps one noisy key from
+// starving others. Keyed by the bearer token (falls back to IP if absent).
+// (In-memory: fine for a single instance; use a shared store when you scale out.)
+const BURST_PER_MIN = Number(process.env.BURST_PER_MIN || 60);
+const keyLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: BURST_PER_MIN,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const auth = req.headers.authorization || '';
+    return auth.startsWith('Bearer ') ? auth.slice(7) : (req.ip ?? 'unknown');
+  },
+  message: { error: `Rate limit: max ${BURST_PER_MIN} requests/minute per key. Slow down and retry.` },
+});
 
 // Concurrency queue (In-Memory Queue for Phase 2)
 // This ensures we only run a few browser contexts at a time to prevent OOM/crashes
@@ -78,7 +99,7 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *       401:
  *         description: Unauthorized (invalid API key)
  */
-app.post('/capture', requireAuth, enforceQuota, async (req, res) => {
+app.post('/capture', keyLimiter, requireAuth, enforceQuota, async (req, res) => {
   const { url, fullPage, skipClean, waitForSelector, viewportWidth, timeoutMs, extractElements } = req.body;
   const apiKeyId = req.apiKeyId || null;
 
@@ -197,7 +218,7 @@ app.post('/capture', requireAuth, enforceQuota, async (req, res) => {
  *       401:
  *         description: Unauthorized (invalid API key)
  */
-app.post('/observe', requireAuth, enforceQuota, async (req, res) => {
+app.post('/observe', keyLimiter, requireAuth, enforceQuota, async (req, res) => {
   const { url, includeScreenshot, waitForSelector, viewportWidth, timeoutMs, fullPage } = req.body;
   const apiKeyId = req.apiKeyId || null;
 
@@ -263,6 +284,51 @@ app.post('/observe', requireAuth, enforceQuota, async (req, res) => {
       costSaved: 0,
       status,
     }).catch(err => console.error('Logging failed:', err));
+  }
+});
+
+// ── Billing (provider-agnostic: mock | stripe | razorpay) ────────────────────
+app.get('/billing/plans', (_req, res) => {
+  res.json({ provider: getBillingProvider().name, plans: PLAN_PRICING });
+});
+
+// Start a checkout for the logged-in user (authenticated by Supabase session JWT).
+app.post('/billing/checkout', requireUser, async (req, res) => {
+  const plan = String(req.body?.plan || '');
+  if (!isPaidPlan(plan)) {
+    return res.status(400).json({ error: 'Choose a paid plan: "pro" or "team".' });
+  }
+  const appUrl = process.env.APP_URL || 'http://localhost:3000';
+  try {
+    const provider = getBillingProvider();
+    const result = await provider.createCheckout({
+      userId: req.userId!,
+      plan,
+      successUrl: `${appUrl}/dashboard?upgraded=1`,
+      cancelUrl: `${appUrl}/dashboard`,
+    });
+    res.json({ provider: provider.name, ...result });
+  } catch (err: any) {
+    console.error('Checkout error:', err);
+    res.status(500).json({ error: err.message || 'Checkout failed' });
+  }
+});
+
+// Provider webhook (Stripe/Razorpay). The mock provider fulfils synchronously,
+// so this is a no-op for demos.
+app.post('/billing/webhook', express.raw({ type: '*/*' }), async (req, res) => {
+  try {
+    const provider = getBillingProvider();
+    const sigHeader = req.headers['stripe-signature'] || req.headers['x-razorpay-signature'];
+    const signature = Array.isArray(sigHeader) ? sigHeader[0] : sigHeader;
+    const result = await provider.handleWebhook(req.body as Buffer, signature);
+    if (result.handled && result.userId && result.plan) {
+      await applyPlanForUser(result.userId, result.plan);
+    }
+    res.json({ received: true });
+  } catch (err: any) {
+    console.error('Webhook error:', err);
+    res.status(400).json({ error: err.message || 'Webhook error' });
   }
 });
 

@@ -44,6 +44,28 @@ export async function validateApiKey(key: string) {
   return { id: data.id as string, plan: (data.plan as string) || 'free' };
 }
 
+// Verify a Supabase user session JWT and return the user id (for account-level
+// actions like billing, which are authenticated by the logged-in user — not an
+// API key).
+export async function getUserFromToken(jwt: string): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.auth.getUser(jwt);
+  if (error || !data?.user) return null;
+  return data.user.id;
+}
+
+// Apply a plan to all of a user's API keys (used by billing). Runs with the
+// service role, so it bypasses RLS. Returns true on success.
+export async function applyPlanForUser(userId: string, plan: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from('api_keys').update({ plan }).eq('user_id', userId);
+  if (error) {
+    console.error('[VisionStream] Failed to apply plan:', error.message);
+    return false;
+  }
+  return true;
+}
+
 // Count how many requests this key has made in the current billing period.
 export async function countKeyUsageThisMonth(apiKeyId: string, sinceIso: string): Promise<number> {
   if (!supabase) return 0;
