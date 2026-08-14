@@ -57,7 +57,7 @@ We run two tracks in parallel: **Product/Backend** (the plan's Phases A–E) and
 ### UX / Marketing (the redesign we just planned)
 - 🟢 **U0 — Foundations:** violet accent + Space Grotesk applied cohesively across app.
 - 🟢 **U1 — Landing rebuild:** centered statement hero, animated console demo (observe pipeline running), trust wall, problem marquee, "messy → one schema" visual, comparison, live-stats proof, pricing, FAQ, fixed footer. Built to the locked DNA. *(awaiting your visual sign-off)*
-- ⚪ **U2 — Playground polish:** align to new DNA; make the demo the strongest single artifact.
+- 🟢 **U2 — Playground cohesion:** inherits the violet + Space Grotesk DNA (numbers/headings use the display face, restrained badges). Same-brand feel as the landing.
 - ⚪ **U3 — Docs + Console polish:** consistent look; Console shipped as "beta".
 
 ### Launch definition (end of month)

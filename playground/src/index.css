@@ -1607,3 +1607,24 @@ input:checked + .slider:before {
 @media (prefers-reduced-motion: reduce) {
   .v-dot, .v-shot-scan, .v-schema-arrow, .v-marquee-track { animation: none !important; }
 }
+
+/* ── Comparison table v2 — clearer ──────────────────────────────────────── */
+.v-compare .v-tr { grid-template-columns: 1.7fr 1fr 1fr 1fr; padding: 16px 20px; }
+.v-compare .v-thead { background: transparent; border-bottom: 1px solid var(--border-light); }
+.v-col-h { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; }
+.v-col-h.brand { color: var(--accent-color); }
+.v-compare .v-cap { color: var(--text-primary); font-weight: 500; font-size: 14px; }
+.v-compare .v-cell { font-size: 13.5px; display: flex; align-items: center; gap: 7px; }
+.v-compare .v-cell.brand { color: var(--text-primary); font-weight: 500; }
+.v-compare .v-cell.brand svg { color: var(--accent-color); flex-shrink: 0; }
+.v-compare .v-cell.muted { color: var(--text-muted); }
+/* Continuous violet tint down the VisionStream column */
+.v-compare .v-tr > .brand { background: rgba(167,139,250,0.06); margin: -16px 0; padding: 16px 12px; }
+.v-compare .v-thead > .brand { margin: -16px 0; padding: 16px 12px; border-radius: 10px 10px 0 0; }
+
+/* ── U2 — Playground cohesion with landing DNA ──────────────────────────── */
+.pg-metric-num, .count-num, .savings-big, .pg-hero-title { font-family: var(--font-display); letter-spacing: -0.025em; }
+.db-stat-num, .v-stat-n { font-family: var(--font-display); }
+/* Softer, more restrained pill badge in the playground */
+.pill-badge { background: var(--bg-panel); color: var(--text-secondary); border-color: var(--border-color); }
+.pill-badge, .pg-badge { font-weight: 500; }

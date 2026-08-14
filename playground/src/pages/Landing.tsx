@@ -25,13 +25,13 @@ const BOXES = [
   { l: '64%', t: '58%', w: '26%', h: '14%' },
 ];
 
-const COMPARE: [string, boolean | string, boolean | string, boolean | string][] = [
-  ['Structured JSON (links, forms, tables)', true, false, false],
-  ['Bounding box on every element', true, false, false],
-  ['Cleaned, vision-optimized screenshot', true, 'raw', 'raw'],
-  ['30–60% fewer vision tokens', true, false, false],
-  ['First-class MCP server', true, false, false],
-  ['Setup', '1 API call', 'browser + prompts + glue', 'browser infra'],
+const COMPARE: { cap: string; vs: string; a: string; b: string }[] = [
+  { cap: 'Structured JSON (links, forms, tables)', vs: 'Built in', a: 'Build it yourself', b: 'Not included' },
+  { cap: 'Bounding box on every element', vs: 'Built in', a: 'Not available', b: 'Not available' },
+  { cap: 'Cleaned, vision-optimized screenshot', vs: 'Yes', a: 'Raw only', b: 'Raw only' },
+  { cap: '30–60% fewer vision tokens', vs: 'Yes', a: 'No', b: 'No' },
+  { cap: 'First-class MCP server', vs: 'Yes', a: 'No', b: 'No' },
+  { cap: 'What it takes to set up', vs: '1 API call', a: 'Browser + prompts + glue', b: 'Browser infra' },
 ];
 
 const STATS: { to?: number; suffix?: string; static?: string; l: string }[] = [
@@ -227,15 +227,18 @@ export default function Landing() {
         <div className="v-kicker">Why VisionStream</div>
         <h2 className="v-h2">They hand you a browser. We hand you the page.</h2>
         <div className="v-table">
-          <div className="v-tr v-thead"><span /><span className="v-brandcol">VisionStream</span><span>Playwright + GPT-4o</span><span>Browser infra</span></div>
+          <div className="v-tr v-thead">
+            <span className="v-col-h">Capability</span>
+            <span className="v-col-h brand">VisionStream</span>
+            <span className="v-col-h">Playwright + GPT-4o</span>
+            <span className="v-col-h">Browser infra</span>
+          </div>
           {COMPARE.map((row, i) => (
             <div className="v-tr" key={i}>
-              <span className="v-cap">{row[0]}</span>
-              {[row[1], row[2], row[3]].map((val, j) => (
-                <span className={`v-cell ${j === 0 ? 'brandcol' : ''}`} key={j}>
-                  {val === true ? <Check size={16} className="v-yes" /> : val === false ? <X size={15} className="v-no" /> : <span className="v-cell-txt">{val}</span>}
-                </span>
-              ))}
+              <span className="v-cap">{row.cap}</span>
+              <span className="v-cell brand"><Check size={14} /> {row.vs}</span>
+              <span className="v-cell muted">{row.a}</span>
+              <span className="v-cell muted">{row.b}</span>
             </div>
           ))}
         </div>
