@@ -58,7 +58,7 @@ We run two tracks in parallel: **Product/Backend** (the plan's Phases A–E) and
 - 🟢 **U0 — Foundations:** violet accent + Space Grotesk applied cohesively across app.
 - 🟢 **U1 — Landing rebuild:** centered statement hero, animated console demo (observe pipeline running), trust wall, problem marquee, "messy → one schema" visual, comparison, live-stats proof, pricing, FAQ, fixed footer. Built to the locked DNA. *(awaiting your visual sign-off)*
 - 🟢 **U2 — Playground cohesion:** inherits the violet + Space Grotesk DNA (numbers/headings use the display face, restrained badges). Same-brand feel as the landing.
-- ⚪ **U3 — Docs + Console polish:** consistent look; Console shipped as "beta".
+- 🟢 **U3 — Docs + Console polish:** docs + Console (renamed from "Dashboard") + login all inherit the DNA — display headings, violet accents, logo on login, Console tagged BETA. One coherent brand end to end.
 
 ### Launch definition (end of month)
 Live and polished: **landing + docs + playground**, deployed (Phase D), with the "Get an API key" flow issuing free/beta keys. Payments stay in demo mode. That's the bar.

@@ -1628,3 +1628,14 @@ input:checked + .slider:before {
 /* Softer, more restrained pill badge in the playground */
 .pill-badge { background: var(--bg-panel); color: var(--text-secondary); border-color: var(--border-color); }
 .pill-badge, .pg-badge { font-weight: 500; }
+
+/* ── U3 — Docs + Console cohesion with the DNA ──────────────────────────── */
+.doc h1, .db-onboard-title, .db-head-title h1 { font-family: var(--font-display); letter-spacing: -0.025em; }
+.db-head-title { display: flex; align-items: center; gap: 10px; }
+.db-beta { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--text-secondary); background: var(--bg-input); border: 1px solid var(--border-color); padding: 2px 6px; border-radius: 5px; font-style: normal; }
+.login-card h2 { font-family: var(--font-display); letter-spacing: -0.02em; }
+.login-logo { display: flex; justify-content: center; margin-bottom: 14px; }
+/* Docs endpoint verb + kickers already inherit the violet accent via tokens. */
+.doc-eyebrow { color: var(--text-muted); }
+.docs-side-link.active { background: var(--accent-soft); }
+.docs-side-link.active svg { color: var(--accent-color); }

@@ -140,7 +140,7 @@ export default function Dashboard({ session }: { session: any }) {
   return (
     <div className="db">
       <div className="db-head">
-        <div className="db-head-title"><LogoMark size={22} /> <h1>Dashboard</h1></div>
+        <div className="db-head-title"><LogoMark size={22} /> <h1>Console</h1> <span className="db-beta">BETA</span></div>
         <p className="db-head-sub">Signed in as {session?.user?.email}</p>
       </div>
 

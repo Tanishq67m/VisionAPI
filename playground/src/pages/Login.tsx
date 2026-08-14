@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { LogoMark } from '../components/Logo';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
 
 export default function Login() {
@@ -45,7 +46,7 @@ export default function Login() {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <div className="logo-icon large"></div>
+          <div className="login-logo"><LogoMark size={40} /></div>
           <h2>Welcome to VisionStream</h2>
           <p>{isSignUp ? 'Create a new account' : 'Sign in to your dashboard'}</p>
         </div>
