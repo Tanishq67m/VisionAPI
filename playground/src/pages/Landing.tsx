@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogoMark } from '../components/Logo';
-import { ArrowRight, Github, Check, X, Plus, Minus } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
+import { ArrowRight, Github, Check, Plus, Minus } from 'lucide-react';
 
 /* Illustrative developer chatter (not real quotes). */
 const CHATTER = [
@@ -62,6 +63,27 @@ export default function Landing() {
   const statsRef = useRef<HTMLElement>(null);
   const [demo, setDemo] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [email, setEmail] = useState('');
+  const [waitState, setWaitState] = useState<'idle' | 'busy' | 'done'>('idle');
+  const [waitErr, setWaitErr] = useState('');
+
+  const scrollToWaitlist = () => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+
+  const submitWaitlist = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setWaitErr('');
+    setWaitState('busy');
+    try {
+      if (supabase) {
+        const { error } = await supabase.from('waitlist').insert([{ email }]);
+        if (error && !/duplicate|unique|already/i.test(error.message)) throw error;
+      }
+      setWaitState('done');
+    } catch {
+      setWaitErr('Could not save that — email us at hello@visionstream.dev and we’ll add you.');
+      setWaitState('idle');
+    }
+  };
 
   // Signature demo animation: cycle through the pipeline + reveal boxes.
   useEffect(() => {
@@ -112,20 +134,20 @@ export default function Landing() {
           <button className="v-link" onClick={() => navigate('/docs')}>Docs</button>
           <button className="v-link" onClick={() => navigate('/login')}>Pricing</button>
           <a className="v-link v-ic" href="https://github.com" target="_blank" rel="noreferrer" aria-label="GitHub"><Github size={17} /></a>
-          <button className="v-cta" onClick={() => navigate('/login')}>Get an API key</button>
+          <button className="v-cta" onClick={() => navigate('/playground')}>Try the playground</button>
         </div>
       </nav>
 
       {/* Hero — centered statement */}
       <header className="v-hero">
-        <div className="v-eyebrow"><span className="v-dot" /> Browser intelligence API for AI agents</div>
-        <h1 className="v-h1">Turn any URL into structured data<br />your agent can act on.</h1>
-        <p className="v-lead">One API call returns a clean screenshot and the page's real structure — links, forms, tables, buttons, every element boxed and labeled. 30–60% fewer vision tokens. No selectors, no OCR, no pixel-guessing.</p>
+        <div className="v-eyebrow"><span className="v-dot" /> The perception layer for AI agents</div>
+        <h1 className="v-h1">Your agent shouldn't read a transcript of the page. It should <span className="v-em">see</span> it.</h1>
+        <p className="v-lead">Everyone turns the web into text for your model to read. But agents that click, fill, and verify need to <em>see</em> the page — where things are, what's interactive, what's on screen. VisionStream returns a cleaned screenshot and the page's structure, every element boxed and labeled.</p>
         <div className="v-cta-row">
-          <button className="v-btn v-btn-primary" onClick={() => navigate('/login')}>Get an API key <ArrowRight size={17} /></button>
-          <button className="v-btn v-btn-ghost" onClick={() => navigate('/playground')}>Try the playground</button>
+          <button className="v-btn v-btn-primary" onClick={() => navigate('/playground')}>Try the playground <ArrowRight size={17} /></button>
+          <button className="v-btn v-btn-ghost" onClick={scrollToWaitlist}>Get early access</button>
         </div>
-        <div className="v-install"><span className="v-prompt">$</span> npm i visionstream</div>
+        <div className="v-hero-note">Playground is live — no signup. API, SDK &amp; Console coming soon.</div>
       </header>
 
       {/* Signature animated product demo */}
@@ -257,10 +279,11 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* Pricing (coming soon) */}
       <section className="v-pricing reveal">
-        <div className="v-kicker">Pricing</div>
+        <div className="v-kicker">Pricing · coming soon</div>
         <h2 className="v-h2">Start free. Pay when it’s load-bearing.</h2>
+        <p className="v-sub">Plans open when the API launches. Join early access for launch pricing — the playground is free to use today.</p>
         <div className="v-plans">
           {PLANS.map((pl) => (
             <div className={`v-plan ${pl.featured ? 'featured' : ''}`} key={pl.n}>
@@ -269,7 +292,7 @@ export default function Landing() {
               <div className="v-plan-p">{pl.p}<span>/mo</span></div>
               <div className="v-plan-tag">{pl.tag}</div>
               <ul className="v-plan-items">{pl.items.map((it) => <li key={it}><Check size={14} /> {it}</li>)}</ul>
-              <button className={`v-btn ${pl.featured ? 'v-btn-primary' : 'v-btn-ghost'} v-plan-cta`} onClick={() => navigate(pl.to)}>{pl.cta}</button>
+              <button className={`v-btn ${pl.featured ? 'v-btn-primary' : 'v-btn-ghost'} v-plan-cta`} onClick={scrollToWaitlist}>Get early access</button>
             </div>
           ))}
         </div>
@@ -289,13 +312,21 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Final */}
-      <section className="v-final reveal">
-        <h2 className="v-final-h">Give your agents eyes — and the structure to use them.</h2>
-        <div className="v-cta-row" style={{ justifyContent: 'center' }}>
-          <button className="v-btn v-btn-primary" onClick={() => navigate('/login')}>Get an API key <ArrowRight size={17} /></button>
-          <button className="v-btn v-btn-ghost" onClick={() => navigate('/playground')}>Try the playground</button>
-        </div>
+      {/* Waitlist / final CTA */}
+      <section className="v-waitlist reveal" id="waitlist">
+        <div className="v-kicker" style={{ textAlign: 'center' }}>Early access</div>
+        <h2 className="v-final-h">Give your agents eyes.<br />Get a key before everyone else.</h2>
+        <p className="v-sub" style={{ margin: '0 auto 26px', textAlign: 'center' }}>The playground is live today. Drop your email and we'll get you an API key the moment it opens.</p>
+        {waitState === 'done' ? (
+          <div className="v-wait-done"><Check size={16} /> You're on the list — we'll be in touch.</div>
+        ) : (
+          <form className="v-wait-form" onSubmit={submitWaitlist}>
+            <input type="email" required placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <button type="submit" className="v-btn v-btn-primary" disabled={waitState === 'busy'}>{waitState === 'busy' ? 'Adding…' : 'Get early access'}</button>
+          </form>
+        )}
+        {waitErr && <div className="v-wait-err">{waitErr}</div>}
+        <div className="v-wait-or">or <button className="v-linkish" onClick={() => navigate('/playground')}>try the playground now →</button></div>
       </section>
 
       {/* Footer */}
@@ -311,8 +342,8 @@ export default function Landing() {
             </div>
           </div>
           <div className="v-footer-bottom">
-            <span className="v-footer-sig">© {new Date().getFullYear()} VisionStream · Browser intelligence for AI agents</span>
-            <span className="v-footer-install"><span className="v-prompt">$</span> npm&nbsp;i&nbsp;visionstream</span>
+            <span className="v-footer-sig">© {new Date().getFullYear()} VisionStream · The perception layer for AI agents</span>
+            <span className="v-footer-install">Playground live · API coming soon</span>
           </div>
         </div>
       </footer>

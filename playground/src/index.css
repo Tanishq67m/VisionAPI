@@ -1639,3 +1639,18 @@ input:checked + .slider:before {
 .doc-eyebrow { color: var(--text-muted); }
 .docs-side-link.active { background: var(--accent-soft); }
 .docs-side-link.active svg { color: var(--accent-color); }
+
+/* ── Lean launch — story emphasis + waitlist ───────────────────────────── */
+.v-em { color: var(--accent-color); font-style: normal; }
+.v-lead em { color: var(--text-primary); font-style: normal; font-weight: 500; }
+.v-hero-note { margin-top: 22px; font-size: 13px; color: var(--text-muted); }
+.v-waitlist { max-width: 660px; margin: 0 auto; padding: 60px 28px 80px; text-align: center; }
+.v-wait-form { display: flex; gap: 10px; max-width: 460px; margin: 0 auto; }
+.v-wait-form input { flex: 1; min-width: 0; background: var(--bg-panel); border: 1px solid var(--border-light); color: var(--text-primary); border-radius: 10px; padding: 12px 14px; font-size: 15px; font-family: inherit; outline: none; transition: border-color .15s, box-shadow .15s; }
+.v-wait-form input::placeholder { color: var(--text-muted); }
+.v-wait-form input:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px var(--accent-soft); }
+.v-wait-done { display: inline-flex; align-items: center; gap: 8px; color: var(--success-color); background: var(--success-bg); border: 1px solid rgba(52,211,153,0.3); border-radius: 10px; padding: 12px 18px; font-size: 15px; }
+.v-wait-err { color: var(--c-red); font-size: 13px; margin-top: 12px; }
+.v-wait-or { margin-top: 18px; font-size: 14px; color: var(--text-muted); }
+.v-linkish { background: none; border: none; color: var(--accent-color); cursor: pointer; font-size: 14px; padding: 0; }
+.v-linkish:hover { text-decoration: underline; }

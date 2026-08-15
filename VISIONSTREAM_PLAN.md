@@ -31,8 +31,9 @@
 - **Theme:** dark everywhere. Near-black `#0a0a0b`, refined neutrals, one disciplined accent.
 - **Audience:** AI-agent developers first. Copy is concrete, code-forward, specs over adjectives.
 - **Anchor reference:** arguslabs.in (adapt the vibe, never the content).
-- **Primary CTA:** "Get an API key" (issues a real free/beta key — we already built the flow).
-- **Proof strategy:** live engine stats (real numbers from the actual engine — "191 elements from stripe.com", "41% fewer tokens"). No fake logos.
+- **Positioning (locked — see STORY.md):** VisionStream is the **perception layer for AI agents**. The lane is *"see it, don't read it"* — the text-scraping category turns the web into markdown to *read*; we return a screenshot + structure so an agent can *see and act on* an interface. Why-us, never named: they optimize for reading the web; we optimize for seeing and operating it.
+- **Launch model (lean, no spend):** Playground live now; API keys / Console / Pro / SDK are **coming soon**. Primary CTA = "Try the playground"; secondary = "Get early access" (email waitlist → Supabase). Goal: 1–2 real users + a waitlist. Open Pro only on good response.
+- **Proof strategy:** live engine stats (real numbers from the actual engine). No fake logos.
 - **Motion:** ARGUS-level — animated product demos across sections, on restrained surfaces.
 
 **Tokens (locked)**
