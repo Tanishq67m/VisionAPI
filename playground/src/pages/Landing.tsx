@@ -142,8 +142,8 @@ export default function Landing() {
       <section className="v-demo-wrap reveal">
         <div className="v-console">
           <div className="v-console-bar">
-            <span className="v-tl" /><span className="v-tl" /><span className="v-tl" />
-            <span className="v-console-url">POST /observe · news.ycombinator.com</span>
+            <span className="v-method">POST</span>
+            <span className="v-console-url">/observe · news.ycombinator.com</span>
             <span className={`v-console-pill ${jsonReady ? 'done' : ''}`}>{jsonReady ? 'done · 2.3s' : 'observing…'}</span>
           </div>
           <div className="v-console-body">
@@ -279,7 +279,7 @@ export default function Landing() {
               <div className="v-plan-n">{pl.n}</div>
               <div className="v-plan-p">{pl.p}<span>/mo</span></div>
               <div className="v-plan-tag">{pl.tag}</div>
-              <ul className="v-plan-items">{pl.items.map((it) => <li key={it}><Check size={14} /> {it}</li>)}</ul>
+              <ul className="v-plan-items">{pl.items.map((it) => <li key={it}>{it}</li>)}</ul>
               <button className={`v-btn ${pl.featured ? 'v-btn-primary' : 'v-btn-ghost'} v-plan-cta`} onClick={scrollToWaitlist}>Get early access</button>
             </div>
           ))}
