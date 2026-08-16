@@ -4,18 +4,6 @@ import { LogoMark } from '../components/Logo';
 import { supabase } from '../lib/supabaseClient';
 import { ArrowRight, Github, Check, Plus, Minus } from 'lucide-react';
 
-/* Illustrative developer chatter (not real quotes). */
-const CHATTER = [
-  { t: 'we were sending full-page screenshots to gpt-4o on every step. the vision bill was 4× the text bill before anyone noticed.', h: 'deploys@2am', s: 'r/LocalLLaMA · 1.2k' },
-  { t: 'the agent clicked the wrong button because it inferred the layout from a blurry screenshot. every single time.', h: 'mira.builds', s: 'X · 3.4k' },
-  { t: 'spent a weekend writing playwright selectors for one site. they redesigned. selectors dead. weekend gone.', h: 'hn_throwaway', s: 'Hacker News · 210' },
-  { t: "our scraper 'worked' — returned an empty array every run because the cookie wall was never dismissed.", h: 'jklol', s: 'Discord · #bugs' },
-  { t: 'asked the model to read a pricing table from a screenshot. it hallucinated a tier that does not exist.', h: 'priyaonprod', s: 'X · 5.1k' },
-  { t: 'vision tokens are the silent killer. nobody budgets for re-reading nav bars ten thousand times a day.', h: 'costwatch', s: 'r/MachineLearning · 780' },
-  { t: 'we bolted an OCR step onto screenshots to get text back. it is 2026. why am I doing OCR.', h: 'devnull_ops', s: 'X · 2.7k' },
-  { t: 'got a browser from the infra vendor. still had to figure out what was actually ON the page ourselves.', h: 'anon_agent', s: 'Discord · pinned' },
-];
-
 const PIPE = ['Load', 'Clean', 'Extract', 'Box', 'JSON'];
 
 const BOXES = [
@@ -203,21 +191,21 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Problem wall */}
+      {/* Problem — the two bad options today */}
       <section className="v-problem reveal">
         <div className="v-kicker">The problem</div>
-        <h2 className="v-h2">Everyone building agents hits the same wall.</h2>
-        <p className="v-sub">Screenshots are expensive and blind. The DOM is a mess. So agents guess — and quietly get it wrong.</p>
-        <div className="v-marquee">
-          <div className="v-marquee-track">
-            {[...CHATTER, ...CHATTER].map((c, i) => (
-              <div className="v-quote" key={i}>
-                <p>“{c.t}”</p>
-                <div className="v-quote-meta"><span className="v-av">{c.h[0].toUpperCase()}</span><span>{c.h}</span><span className="v-quote-src">{c.s}</span></div>
-              </div>
-            ))}
+        <h2 className="v-h2">Today you get half of what your agent needs.</h2>
+        <div className="v-two">
+          <div className="v-two-card">
+            <div className="v-two-h">Screenshot only</div>
+            <p>The model guesses from pixels. It burns vision tokens re-reading nav bars, gets coordinates wrong, and invents buttons that aren't there.</p>
+          </div>
+          <div className="v-two-card">
+            <div className="v-two-h">Text / markdown only</div>
+            <p>Clean to read, but blind to the interface. No layout, no coordinates, no idea what's clickable. Your agent can summarize the page but can't act on it.</p>
           </div>
         </div>
+        <p className="v-two-foot">VisionStream returns both: the cleaned image and the coordinate-grounded structure.</p>
       </section>
 
       {/* Schema visual */}
@@ -337,7 +325,8 @@ export default function Landing() {
             <div className="v-footer-links">
               <button className="v-link" onClick={() => navigate('/playground')}>Playground</button>
               <button className="v-link" onClick={() => navigate('/docs')}>Docs</button>
-              <button className="v-link" onClick={() => navigate('/login')}>Sign in</button>
+              <button className="v-link" onClick={() => navigate('/terms')}>Terms</button>
+              <button className="v-link" onClick={() => navigate('/privacy')}>Privacy</button>
               <a className="v-link" href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
             </div>
           </div>

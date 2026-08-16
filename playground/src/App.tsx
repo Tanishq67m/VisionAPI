@@ -6,12 +6,13 @@ import Dashboard from './pages/Dashboard';
 import Playground from './pages/Playground';
 import Landing from './pages/Landing';
 import Docs from './pages/Docs';
+import { Terms, Privacy } from './pages/Legal';
 import { LogoMark } from './components/Logo';
 import { LayoutDashboard, TerminalSquare, LogOut } from 'lucide-react';
 
 // Routes that never require authentication. The landing page, docs, and Observe
 // playground are the public, no-signup surfaces — they must always render.
-const PUBLIC_PATHS = ['/', '/playground', '/docs', '/login'];
+const PUBLIC_PATHS = ['/', '/playground', '/docs', '/login', '/terms', '/privacy'];
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -67,7 +68,7 @@ function App() {
 
   // Public marketing/tool surfaces are full-bleed with their own top nav —
   // the app sidebar only appears on the authenticated dashboard.
-  const fullBleed = ['/', '/docs', '/playground'].includes(location.pathname);
+  const fullBleed = ['/', '/docs', '/playground', '/terms', '/privacy'].includes(location.pathname);
   const showSidebar = !!session && location.pathname === '/dashboard';
 
   return (
@@ -108,6 +109,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/playground" element={<Playground />} />
           <Route path="/docs" element={<Docs />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="/dashboard" element={<Dashboard session={session} />} />
           {/* Any unknown route falls back to the landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />

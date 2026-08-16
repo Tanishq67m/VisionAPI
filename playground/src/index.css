@@ -1654,3 +1654,23 @@ input:checked + .slider:before {
 .v-wait-or { margin-top: 18px; font-size: 14px; color: var(--text-muted); }
 .v-linkish { background: none; border: none; color: var(--accent-color); cursor: pointer; font-size: 14px; padding: 0; }
 .v-linkish:hover { text-decoration: underline; }
+
+/* ── De-vibecode pass: flat bg, calmer motion, honest problem block ──────── */
+.v { background: var(--bg-dark); }               /* remove hero radial orb (#22) */
+.v-schema-arrow { animation: none; }             /* remove animated arrow (#25) */
+.v-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 34px; }
+.v-two-card { border: 1px solid var(--border-color); border-radius: 14px; padding: 24px; background: var(--bg-panel); }
+.v-two-h { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: var(--text-secondary); }
+.v-two-card p { font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+.v-two-foot { margin-top: 20px; font-size: 15px; color: var(--text-primary); font-weight: 500; }
+@media (max-width: 720px) { .v-two { grid-template-columns: 1fr; } }
+
+/* ── Legal pages ────────────────────────────────────────────────────────── */
+.legal { min-height: 100vh; background: var(--bg-dark); color: var(--text-primary); }
+.legal-main { max-width: 720px; margin: 0 auto; padding: 40px 28px 100px; }
+.legal-main h1 { font-family: var(--font-display); font-size: 34px; font-weight: 600; letter-spacing: -0.02em; }
+.legal-updated { font-size: 13px; color: var(--text-muted); margin: 8px 0 30px; }
+.legal-main h3 { font-size: 16px; font-weight: 600; margin: 30px 0 10px; }
+.legal-main p { font-size: 15px; line-height: 1.7; color: var(--text-secondary); }
+.legal-main a { color: var(--text-accent); }
+.legal-contact { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color); }
