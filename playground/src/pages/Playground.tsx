@@ -150,9 +150,8 @@ print(result.observation.counts)`;
         <div className="pg-nav-links">
           <a className="pg-nav-link active">Observe</a>
           <a className="pg-nav-link" onClick={() => navigate('/docs')}>Docs</a>
-          <a className="pg-nav-link" onClick={() => navigate('/')}>Pricing</a>
           <a className="pg-nav-link" href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
-          <button className="pg-nav-cta" onClick={() => navigate('/login')}>Get API key</button>
+          <button className="pg-nav-cta" onClick={() => navigate('/')}>Get early access</button>
         </div>
       </nav>
 

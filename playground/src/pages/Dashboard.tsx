@@ -30,13 +30,13 @@ export default function Dashboard({ session }: { session: any }) {
     // Order matters: check the specific schema errors before the generic RLS one,
     // since a not-null violation also contains the word "violates".
     if (m.includes('key_hash') || m.includes('key_prefix') || m.includes('does not exist')) {
-      return 'Your database is missing the hashed-key columns. Run supabase_migration_keys.sql in the Supabase SQL editor first.';
+      return 'Your database is missing the hashed-key columns. Run supabase/supabase_migration_keys.sql in the Supabase SQL editor first.';
     }
     if (m.includes('not-null') || m.includes('null value') || (m.includes('key_value') && m.includes('violat'))) {
-      return 'The old key_value column is still required. Re-run supabase_migration_keys.sql — it now drops that NOT NULL constraint.';
+      return 'The old key_value column is still required. Re-run supabase/supabase_migration_keys.sql — it now drops that NOT NULL constraint.';
     }
     if (/row-level security|rls|policy|permission/.test(m)) {
-      return 'The database is blocking this. Run supabase_policies.sql in your Supabase SQL editor to allow signed-in users to manage their own keys.';
+      return 'The database is blocking this. Run supabase/supabase_policies.sql in your Supabase SQL editor to allow signed-in users to manage their own keys.';
     }
     return msg;
   };

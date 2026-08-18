@@ -109,11 +109,11 @@ Runs typechecks, unit tests (SSRF guard, plan/quota math, billing, URL validatio
 
 ## Security
 
-SSRF protection on the initial URL and redirects; API keys stored as SHA-256 hashes; screenshots in a private bucket behind short-lived signed URLs; row-level security on all user data. Details in [`VISIONSTREAM_PLAN.md`](./VISIONSTREAM_PLAN.md).
+SSRF protection on the initial URL and redirects; API keys stored as SHA-256 hashes; screenshots in a private bucket behind short-lived signed URLs; row-level security on all user data. Details in [`VISIONSTREAM_PLAN.md`](./docs/internal/VISIONSTREAM_PLAN.md).
 
 ## Status
 
-Beta / customer-finding. The **playground is live**; hosted API keys, the Console, payments, and deploy are in progress — tracked in [`VISIONSTREAM_PLAN.md`](./VISIONSTREAM_PLAN.md). Positioning lives in [`STORY.md`](./STORY.md).
+Beta / customer-finding. The **playground is live**; hosted API keys, the Console, payments, and deploy are in progress — tracked in [`VISIONSTREAM_PLAN.md`](./docs/internal/VISIONSTREAM_PLAN.md). Positioning lives in [`STORY.md`](./docs/internal/STORY.md).
 
 ## License
 
