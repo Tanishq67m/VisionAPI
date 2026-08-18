@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "playground-ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "playground:ui"],
+      "port": 3000
+    }
+  ]
+}

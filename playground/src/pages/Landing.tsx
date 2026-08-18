@@ -2,9 +2,22 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogoMark } from '../components/Logo';
 import { supabase } from '../lib/supabaseClient';
-import { ArrowRight, ArrowUpRight, Github, Check } from 'lucide-react';
+import {
+  ArrowRight, ArrowUpRight, Check, Copy,
+  Bot, MousePointerClick, Wand2, Table2,
+} from 'lucide-react';
 
 const GITHUB_URL = 'https://github.com/Tanishq67m/VisionAPI';
+
+// Single reference observation, reused across the demo, pipeline, API example,
+// and metrics sections so the numbers on the page are one story, not four.
+const REF = {
+  url: 'https://news.ycombinator.com',
+  host: 'news.ycombinator.com',
+  title: 'Hacker News',
+  counts: { links: 196, buttons: 52, tables: 4, interactive: 191 },
+  sampleButton: { id: 'btn-1', text: 'login', bbox: { x: 24, y: 240, width: 44, height: 20 } },
+};
 
 // Bounding-box brand motif — each detected element carries a mono label + coords.
 const BOXES = [
@@ -14,20 +27,64 @@ const BOXES = [
   { l: '66%', t: '8%', w: '28%', h: '13%', label: 'input', xy: 'x 512 · y 28' },
 ];
 
-const STEPS: { n: string; h: string; p: string }[] = [
-  { n: '01', h: 'Load', p: 'The URL opens in a real headless browser — the same page a person would see.' },
-  { n: '02', h: 'Perceive', p: 'The page is cleaned of chrome, then read for structure: every element, boxed and typed.' },
-  { n: '03', h: 'Return', p: 'You get a vision-optimized screenshot and coordinate-grounded JSON in one response.' },
+// The pipeline strip cycles through these on the same clock as the box reveal —
+// one visible mechanism, not two competing animations.
+const PIPELINE_STAGES = [
+  'URL submitted', 'Page rendered', 'Chrome removed',
+  'Elements mapped', 'Screenshot produced', 'JSON returned',
+];
+
+const HOW_STEPS: { n: string; h: string; p: string }[] = [
+  { n: '01', h: 'Capture', p: 'Render the URL in a real headless browser — the same page a person would see.' },
+  { n: '02', h: 'Clean', p: 'Strip cookie banners, ads, and chrome so the screenshot is just the page.' },
+  { n: '03', h: 'Map', p: 'Detect links, buttons, inputs, tables, and text — each with pixel coordinates.' },
+  { n: '04', h: 'Return', p: 'One response: the vision-optimized screenshot and coordinate-grounded JSON.' },
+];
+
+const USE_CASES: { icon: any; h: string; p: string }[] = [
+  { icon: Bot, h: 'Browser agents', p: 'Give an agent a page it can act on, not just summarize.' },
+  { icon: MousePointerClick, h: 'Computer-use systems', p: 'Ground clicks and keystrokes in real pixel coordinates.' },
+  { icon: Wand2, h: 'UI automation', p: 'Find buttons, inputs, and forms without maintaining selectors.' },
+  { icon: Table2, h: 'Web understanding', p: 'Pull structured tables and links straight out of any page.' },
 ];
 
 // Numbers below are the reference-engine figures VisionStream reports; a footnote
 // keeps them honest rather than dressing them up as third-party benchmarks.
-const STATS: { to?: number; suffix?: string; static?: string; l: string }[] = [
-  { to: 191, l: 'elements extracted in a single call' },
-  { to: 41, suffix: '%', l: 'fewer vision tokens after cleaning' },
-  { static: '1', l: 'call for screenshot + structure' },
-  { static: '<3s', l: 'median capture on viewport pages' },
+const STATS: { to: number; suffix?: string; l: string }[] = [
+  { to: REF.counts.links, l: 'links detected' },
+  { to: REF.counts.buttons, l: 'buttons found' },
+  { to: REF.counts.tables, l: 'tables mapped' },
+  { to: REF.counts.interactive, l: 'interactive elements' },
 ];
+
+const CURL_SNIPPET = `curl -X POST https://api.visionstream.dev/observe \\
+  -H "Authorization: Bearer vs_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "url": "${REF.url}" }'`;
+
+const RESPONSE_SNIPPET = `{
+  "success": true,
+  "data": {
+    "observation": {
+      "pageTitle": "${REF.title}",
+      "links": [
+        { "text": "new", "href": "${REF.url}/newest" }
+      ],
+      "buttons": [
+        { "id": "${REF.sampleButton.id}", "text": "${REF.sampleButton.text}",
+          "bbox": { "x": ${REF.sampleButton.bbox.x}, "y": ${REF.sampleButton.bbox.y},
+                    "width": ${REF.sampleButton.bbox.width}, "height": ${REF.sampleButton.bbox.height} } }
+      ],
+      "tables": [ { "headers": ["Rank", "Title"], "rowCount": 92 } ],
+      "counts": {
+        "links": ${REF.counts.links}, "buttons": ${REF.counts.buttons},
+        "tables": ${REF.counts.tables}, "interactiveElements": ${REF.counts.interactive}
+      }
+    },
+    "metadata": { "title": "${REF.title}", "resolvedUrl": "${REF.url}/" },
+    "processing_time": 2310
+  }
+}`;
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -37,8 +94,13 @@ export default function Landing() {
   const [email, setEmail] = useState('');
   const [waitState, setWaitState] = useState<'idle' | 'busy' | 'done'>('idle');
   const [waitErr, setWaitErr] = useState('');
+  const [copiedKey, setCopiedKey] = useState('');
 
-  const scrollToWaitlist = () => document.getElementById('early-access')?.scrollIntoView({ behavior: 'smooth' });
+  const copy = (text: string, key: string) => {
+    navigator.clipboard?.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(''), 1400);
+  };
 
   const submitWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,9 +118,10 @@ export default function Landing() {
     }
   };
 
-  // Boxes reveal one after another, then reset — a calm loop, not a light show.
+  // One clock drives both the bounding-box reveal and the pipeline strip —
+  // a single mechanism, not two competing animations.
   useEffect(() => {
-    const id = setInterval(() => setScan((s) => (s + 1) % (BOXES.length + 2)), 900);
+    const id = setInterval(() => setScan((s) => (s + 1) % PIPELINE_STAGES.length), 900);
     return () => clearInterval(id);
   }, []);
 
@@ -137,20 +200,30 @@ export default function Landing() {
             View on GitHub <ArrowUpRight size={16} />
           </a>
         </div>
-        <div className="v-hero-note">No signup · Paste a URL · See the result</div>
       </header>
 
-      {/* ── Live product demo ───────────────────────────────────────────── */}
+      {/* ── Live product demo — the centerpiece ─────────────────────────── */}
       <section className="v-demo reveal">
         <div className="v-demo-frame">
           <div className="v-demo-bar">
             <span className="v-method">POST</span>
             <span className="v-demo-url">/observe</span>
             <div className="v-demo-omni">
-              <span className="v-demo-omni-url">https://news.ycombinator.com</span>
+              <span className="v-demo-omni-url">{REF.url}</span>
               <button className="v-demo-run" onClick={() => navigate('/playground')}>Observe</button>
             </div>
           </div>
+
+          {/* Pipeline strip — what the API actually did to produce this response */}
+          <div className="v-pipe-strip" aria-hidden="true">
+            {PIPELINE_STAGES.map((label, i) => (
+              <div className={`v-pipe-tick ${i === scan ? 'active' : ''} ${i < scan ? 'done' : ''}`} key={label}>
+                <span className="v-pipe-dot" />
+                <span className="v-pipe-label">{label}</span>
+              </div>
+            ))}
+          </div>
+
           <div className="v-demo-body">
             {/* Screenshot with bounding boxes */}
             <div className="v-canvas">
@@ -179,14 +252,14 @@ export default function Landing() {
             <div className="v-struct">
               <div className="v-canvas-cap">STRUCTURE</div>
               <div className="v-struct-counts">
-                <div><b>196</b> links</div><div><b>52</b> buttons</div>
-                <div><b>4</b> tables</div><div><b>191</b> interactive</div>
+                <div><b>{REF.counts.links}</b> links</div><div><b>{REF.counts.buttons}</b> buttons</div>
+                <div><b>{REF.counts.tables}</b> tables</div><div><b>{REF.counts.interactive}</b> interactive</div>
               </div>
               <pre className="v-struct-json">{`{
   "type": "button",
-  "text": "login",
-  "bbox": { "x": 24, "y": 240,
-            "w": 44, "h": 18 }
+  "text": "${REF.sampleButton.text}",
+  "bbox": { "x": ${REF.sampleButton.bbox.x}, "y": ${REF.sampleButton.bbox.y},
+            "width": ${REF.sampleButton.bbox.width}, "height": ${REF.sampleButton.bbox.height} }
 }`}</pre>
               <button className="v-struct-link" onClick={() => navigate('/playground')}>
                 Run it on any URL <ArrowRight size={14} />
@@ -200,23 +273,15 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Why VisionStream ────────────────────────────────────────────── */}
+      {/* ── The problem ──────────────────────────────────────────────────── */}
       <section className="v-why reveal">
+        <div className="v-kicker">The problem</div>
         <h2 className="v-h2">Agents need more than markdown.</h2>
         <p className="v-why-lead">
-          Text tells a model what the page <em>says</em>. Pixels show what the page <em>looks like</em>.
-          VisionStream gives agents both.
+          Text tells a model what the page <em>says</em>. Pixels show what the page <em>looks like</em> —
+          and neither alone tells it exactly where the login button is.
+          VisionStream gives agents both, already aligned to the same coordinates.
         </p>
-        <div className="v-flow">
-          <div className="v-flow-node">Webpage</div>
-          <ArrowRight className="v-flow-arrow" size={20} />
-          <div className="v-flow-node accent">VisionStream</div>
-          <ArrowRight className="v-flow-arrow" size={20} />
-          <div className="v-flow-split">
-            <div className="v-flow-node">Image</div>
-            <div className="v-flow-node">Structure</div>
-          </div>
-        </div>
         <div className="v-why-list">
           <span>Clean screenshot</span>
           <span>Coordinate-grounded elements</span>
@@ -225,11 +290,45 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Core pipeline ────────────────────────────────────────────────── */}
+      <section className="v-pipeline reveal">
+        <div className="v-kicker">Core pipeline</div>
+        <h2 className="v-h2">One call, from URL to grounded structure.</h2>
+        <div className="v-pipe-col">
+          <div className="v-pipe-node">
+            <span className="v-pipe-node-label">URL</span>
+            <span className="v-pipe-node-val">{REF.url}</span>
+          </div>
+          <div className="v-pipe-arrow">↓</div>
+          <div className="v-pipe-node">
+            <span className="v-pipe-node-label">Rendered webpage</span>
+            <span className="v-pipe-node-val">Real browser · full layout · JS executed</span>
+          </div>
+          <div className="v-pipe-arrow">↓</div>
+          <div className="v-pipe-node accent">
+            <span className="v-pipe-node-label">VisionStream</span>
+            <span className="v-pipe-node-val">Clean → map → return</span>
+          </div>
+          <div className="v-pipe-arrow">↓</div>
+          <div className="v-pipe-split">
+            <div className="v-pipe-split-col">
+              <div className="v-pipe-split-cap">Screenshot</div>
+              <div className="v-pipe-split-row">pixels</div>
+            </div>
+            <div className="v-pipe-split-col">
+              <div className="v-pipe-split-cap accent">Structured JSON</div>
+              <div className="v-pipe-split-row">elements</div>
+              <div className="v-pipe-split-row">coordinates</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── How it works ────────────────────────────────────────────────── */}
       <section className="v-how reveal">
         <div className="v-kicker">How it works</div>
         <div className="v-steps">
-          {STEPS.map((s) => (
+          {HOW_STEPS.map((s) => (
             <div className="v-step" key={s.n}>
               <div className="v-step-n">{s.n}</div>
               <div className="v-step-h">{s.h}</div>
@@ -239,50 +338,107 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Real API example ────────────────────────────────────────────── */}
+      <section className="v-api reveal">
+        <div className="v-kicker">Real API example</div>
+        <h2 className="v-h2">Exactly what you’d integrate.</h2>
+        <p className="v-why-lead">
+          The same request the playground makes, and the same response shape — including the
+          {' '}{REF.counts.links} links and {REF.counts.interactive} interactive elements from the observation above.
+        </p>
+        <div className="v-api-grid">
+          <div className="v-code-wrap">
+            <div className="v-code-bar">
+              <span>Request</span>
+              <button className="v-code-copy" onClick={() => copy(CURL_SNIPPET, 'curl')}>
+                {copiedKey === 'curl' ? <Check size={13} /> : <Copy size={13} />} {copiedKey === 'curl' ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <pre className="v-code">{CURL_SNIPPET}</pre>
+          </div>
+          <div className="v-code-wrap">
+            <div className="v-code-bar">
+              <span>Response</span>
+              <button className="v-code-copy" onClick={() => copy(RESPONSE_SNIPPET, 'response')}>
+                {copiedKey === 'response' ? <Check size={13} /> : <Copy size={13} />} {copiedKey === 'response' ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <pre className="v-code">{RESPONSE_SNIPPET}</pre>
+          </div>
+        </div>
+        <button className="v-struct-link" onClick={() => navigate('/docs')}>
+          Full API reference <ArrowRight size={14} />
+        </button>
+      </section>
+
+      {/* ── Use cases ────────────────────────────────────────────────────── */}
+      <section className="v-cases reveal">
+        <div className="v-kicker">Use cases</div>
+        <div className="v-cases-grid">
+          {USE_CASES.map((c) => {
+            const Icon = c.icon;
+            return (
+              <div className="v-case" key={c.h}>
+                <Icon size={18} className="v-case-icon" />
+                <div className="v-case-h">{c.h}</div>
+                <p className="v-case-p">{c.p}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {/* ── Real engine results ─────────────────────────────────────────── */}
       <section className="v-results reveal" ref={statsRef}>
         <div className="v-kicker">Real engine results</div>
         <div className="v-stats-grid">
           {STATS.map((s, i) => (
             <div className="v-stat" key={i}>
-              <div className="v-stat-n" data-to={s.to ?? ''} data-suffix={s.suffix ?? ''}>
-                {s.static ?? '0'}
-              </div>
+              <div className="v-stat-n" data-to={s.to} data-suffix={s.suffix ?? ''}>0</div>
               <div className="v-stat-l">{s.l}</div>
             </div>
           ))}
         </div>
         <div className="v-results-foot">
-          Figures from the reference engine — your numbers vary by page.
+          From the {REF.title} observation shown above — your numbers vary by page.
         </div>
       </section>
 
-      {/* ── Early access ────────────────────────────────────────────────── */}
+      {/* ── Final CTA ───────────────────────────────────────────────────── */}
       <section className="v-cta-final reveal" id="early-access">
         <h2 className="v-final-h">Give your agents eyes.</h2>
         <p className="v-final-sub">
-          The playground is live today. We’re opening API access to early builders.
+          The Observe API is live today. Point it at any URL and see what your agent would see.
         </p>
-        {waitState === 'done' ? (
-          <div className="v-wait-done"><Check size={16} /> You’re on the list — we’ll be in touch.</div>
-        ) : (
-          <form className="v-wait-form" onSubmit={submitWaitlist}>
-            <input
-              type="email"
-              required
-              placeholder="you@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-label="Email address"
-            />
-            <button type="submit" className="v-btn v-btn-primary" disabled={waitState === 'busy'}>
-              {waitState === 'busy' ? 'Adding…' : 'Get early access'}
-            </button>
-          </form>
-        )}
-        {waitErr && <div className="v-wait-err">{waitErr}</div>}
-        <div className="v-wait-or">
-          or <button className="v-linkish" onClick={() => navigate('/playground')}>try the playground now →</button>
+        <div className="v-cta-row v-cta-row-center">
+          <button className="v-btn v-btn-primary" onClick={() => navigate('/playground')}>
+            Try the playground <ArrowRight size={17} />
+          </button>
+          <button className="v-btn v-btn-ghost" onClick={() => navigate('/docs')}>
+            Read the docs <ArrowUpRight size={16} />
+          </button>
+        </div>
+
+        <div className="v-wait-block">
+          {waitState === 'done' ? (
+            <div className="v-wait-done"><Check size={15} /> You’re on the list — we’ll be in touch.</div>
+          ) : (
+            <form className="v-wait-form-small" onSubmit={submitWaitlist}>
+              <span className="v-wait-label">Prefer email updates on API access?</span>
+              <input
+                type="email"
+                required
+                placeholder="you@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                aria-label="Email address"
+              />
+              <button type="submit" className="v-btn v-btn-ghost v-wait-submit" disabled={waitState === 'busy'}>
+                {waitState === 'busy' ? 'Adding…' : 'Join waitlist'}
+              </button>
+            </form>
+          )}
+          {waitErr && <div className="v-wait-err">{waitErr}</div>}
         </div>
       </section>
 
